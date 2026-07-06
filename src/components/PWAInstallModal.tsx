@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Download, Smartphone, Monitor, X, Check, Loader2, Sparkles, ExternalLink, ArrowRight, Share } from "lucide-react";
+import { Download, Smartphone, X, Loader2, Sparkles, ExternalLink, Share } from "lucide-react";
+import { usePWA } from "../hooks/usePWA";
 
 interface PWAInstallModalProps {
   isOpen: boolean;
@@ -9,32 +10,11 @@ interface PWAInstallModalProps {
 }
 
 export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({ isOpen, onClose, onInstallSuccess }) => {
+  const { isIOS, isInIframe, triggerInstall, deferredPrompt } = usePWA();
   const [isInstalling, setIsInstalling] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [showManualGuide, setShowManualGuide] = useState(false);
-  const [platformInfo, setPlatformInfo] = useState({
-    isIOS: false,
-    isAndroid: false,
-    isMobile: false,
-    isInIframe: false,
-  });
 
-  useEffect(() => {
-    const ua = window.navigator.userAgent.toLowerCase();
-    const isIOS = /iphone|ipad|ipod/.test(ua);
-    const isAndroid = /android/.test(ua);
-    const isMobile = isIOS || isAndroid || /webos|blackberry|iemobile|opera mini/.test(ua);
-    const isInIframe = window.self !== window.top;
-
-    setPlatformInfo({ isIOS, isAndroid, isMobile, isInIframe });
-
-    // If it's iOS or inside iframe, we naturally need guides or special buttons
-    if (isIOS) {
-      setShowManualGuide(true);
-    }
-  }, []);
-
-  // Listen to the successful installation event to automatically hide and complete
+  // Listen to the successful installation event
   useEffect(() => {
     const handleAppInstalled = () => {
       console.log("[PWA Modal] App successfully installed natively!");
@@ -52,7 +32,7 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({ isOpen, onClos
     setStatusMessage(null);
 
     // 1. Check if running inside an iframe
-    if (platformInfo.isInIframe) {
+    if (isInIframe) {
       setStatusMessage("Abriendo la aplicación en una pestaña nueva para iniciar la instalación nativa fuera del visor...");
       setTimeout(() => {
         window.open(window.location.href, "_blank");
@@ -62,60 +42,44 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({ isOpen, onClos
     }
 
     // 2. iOS Safari manual guide toggler
-    if (platformInfo.isIOS) {
-      setShowManualGuide(true);
+    if (isIOS) {
+      // Actually we show it by default below, but this is a fallback action if clicked
       return;
     }
 
-    // 3. Native install prompt execution
-    const currentPrompt = (window as any).deferredPrompt || (window.parent as any)?.deferredPrompt;
-    if (currentPrompt) {
-      setIsInstalling(true);
+    // 3. Native install prompt execution for Android/Chrome/PC
+    setIsInstalling(true);
+    const safetyTimeout = setTimeout(() => {
+      console.warn("[PWA Modal] Installation prompt choice timed out.");
+      setIsInstalling(false);
+      setStatusMessage("La solicitud tardó más de lo esperado. Si no viste el cuadro de diálogo, puedes instalar manualmente desde el menú de tu navegador.");
+    }, 4000);
+
+    try {
+      const accepted = await triggerInstall();
+      clearTimeout(safetyTimeout);
       
-      const safetyTimeout = setTimeout(() => {
-        console.warn("[PWA Modal] Installation prompt choice timed out.");
-        setIsInstalling(false);
-        setStatusMessage("La solicitud tardó más de lo esperado. Si no viste el cuadro de diálogo, puedes instalar manualmente desde el menú de tu navegador.");
-      }, 4000);
-
-      try {
-        console.log("[PWA Modal] Launching browser native prompt...");
-        await currentPrompt.prompt();
-
-        const choiceResult = await currentPrompt.userChoice;
-        clearTimeout(safetyTimeout);
-
-        console.log(`[PWA Modal] User installation choice: ${choiceResult.outcome}`);
-        
-        if (choiceResult.outcome === "accepted") {
-          console.log("[PWA Modal] Native installation accepted.");
-          onInstallSuccess();
-        } else {
-          console.log("[PWA Modal] Native installation dismissed.");
-          setStatusMessage("Instalación cancelada. Puedes instalarla cuando desees desde el menú del navegador.");
-          setTimeout(() => setStatusMessage(null), 4000);
-        }
-      } catch (err: any) {
-        clearTimeout(safetyTimeout);
-        console.error("[PWA Modal] Error displaying installation prompt:", err);
-        setShowManualGuide(true);
-      } finally {
-        setIsInstalling(false);
-        (window as any).deferredPrompt = null;
+      if (accepted) {
+        onInstallSuccess();
+      } else {
+        setStatusMessage("Instalación cancelada. Puedes instalarla cuando desees desde el menú del navegador.");
+        setTimeout(() => setStatusMessage(null), 4000);
       }
-    } else {
-      console.warn("[PWA Modal] deferredPrompt is not available. Showing manual guide.");
-      setShowManualGuide(true);
+    } catch (err: any) {
+      clearTimeout(safetyTimeout);
+      console.error("[PWA Modal] Error:", err);
+    } finally {
+      setIsInstalling(false);
     }
   };
 
   const handleForceConfirmDownloaded = () => {
-    // Let the user manually declare that they have already installed the app
-    // or want to stop seeing the prompt.
     onInstallSuccess();
   };
 
   if (!isOpen) return null;
+
+  const showManualGuide = isIOS || (!deferredPrompt && !isInIframe);
 
   return (
     <AnimatePresence>
@@ -145,7 +109,7 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({ isOpen, onClos
                     <span>Experiencia Recomendada</span>
                   </div>
                   <h3 className="font-sans font-extrabold text-xl text-white leading-tight">
-                    Descargar M.A.P.A.™ en tu Celular
+                    Descargar M.A.P.A.™
                   </h3>
                 </div>
               </div>
@@ -162,18 +126,18 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({ isOpen, onClos
             {/* Body */}
             <div className="mt-4 space-y-4 relative z-10">
               <p className="text-xs sm:text-sm text-gray-300 leading-relaxed font-sans">
-                Para garantizar que puedas realizar el **seguimiento diario de tus 7 días** de forma ininterrumpida, te sugerimos descargar el acceso directo en tu dispositivo. Es ligero, funciona de forma offline, y te permite ingresar a tu cuenta de inmediato.
+                Para garantizar que puedas realizar el <strong>seguimiento diario de tus 7 días</strong> de forma ininterrumpida, te sugerimos descargar el acceso directo en tu dispositivo. Es ligero, funciona de forma offline, y te permite ingresar a tu cuenta de inmediato.
               </p>
 
-              {/* Conditional Layouts based on environment and platforms */}
-              {platformInfo.isInIframe && (
+              {/* Conditional Layouts */}
+              {isInIframe && (
                 <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl space-y-3">
                   <p className="text-xs text-amber-200 font-sans leading-relaxed">
-                    ⚠️ **Nota sobre el visor:** Te encuentras en el visor de pruebas. Para realizar la instalación nativa de la aplicación en tu celular o computadora, debes abrirla en una pestaña normal de tu navegador.
+                    ⚠️ <strong>Nota sobre el visor:</strong> Te encuentras en el visor de pruebas. Para realizar la instalación nativa de la aplicación en tu celular o computadora, debes abrirla en una pestaña normal de tu navegador.
                   </p>
                   <button
                     onClick={() => {
-                      window.open("https://mapa-dun.vercel.app", "_blank");
+                      window.open(window.location.href, "_blank");
                     }}
                     className="w-full py-2.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold rounded-xl text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer border-none"
                   >
@@ -183,8 +147,7 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({ isOpen, onClos
                 </div>
               )}
 
-              {/* The installation triggers */}
-              {!platformInfo.isInIframe && (
+              {!isInIframe && (
                 <div className="space-y-4">
                   {/* Default Call to Action Button */}
                   {!showManualGuide && (
@@ -220,7 +183,7 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({ isOpen, onClos
                         <span>Guía de Instalación para tu Dispositivo</span>
                       </h4>
 
-                      {platformInfo.isIOS ? (
+                      {isIOS ? (
                         // iOS Safari manual visual steps
                         <div className="space-y-3 text-xs text-gray-300 font-sans">
                           <p className="text-[11px] text-cyan-300 font-medium">Sigue estos sencillos pasos desde Safari en tu iPhone o iPad:</p>
@@ -234,7 +197,7 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({ isOpen, onClos
                             <div className="flex items-start space-x-3 bg-white/5 p-2 rounded-xl">
                               <div className="w-5 h-5 rounded-full bg-[#113a63] border border-cyan-400/30 text-[11px] text-[#7EF9FF] font-mono flex items-center justify-center shrink-0 font-bold">2</div>
                               <p className="leading-relaxed">
-                                Desplázate hacia abajo en el menú de opciones y selecciona <strong>"Añadir a pantalla de inicio"</strong> <span className="inline-block font-bold text-cyan-300 text-sm">➕</span>.
+                                Desplázate hacia abajo en el menú de opciones y selecciona <strong>"Agregar a Inicio"</strong> o <strong>"Añadir a pantalla de inicio"</strong> <span className="inline-block font-bold text-cyan-300 text-sm">➕</span>.
                               </p>
                             </div>
                             <div className="flex items-start space-x-3 bg-white/5 p-2 rounded-xl">
