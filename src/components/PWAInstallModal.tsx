@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Download, Smartphone, Monitor, X, Check, Loader2, Sparkles, ExternalLink } from "lucide-react";
+import { Download, Smartphone, Monitor, X, Check, Loader2, Sparkles, ExternalLink, ArrowRight, Share } from "lucide-react";
 
 interface PWAInstallModalProps {
   isOpen: boolean;
@@ -11,8 +11,10 @@ interface PWAInstallModalProps {
 export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({ isOpen, onClose, onInstallSuccess }) => {
   const [isInstalling, setIsInstalling] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [showManualGuide, setShowManualGuide] = useState(false);
   const [platformInfo, setPlatformInfo] = useState({
     isIOS: false,
+    isAndroid: false,
     isMobile: false,
     isInIframe: false,
   });
@@ -20,10 +22,16 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({ isOpen, onClos
   useEffect(() => {
     const ua = window.navigator.userAgent.toLowerCase();
     const isIOS = /iphone|ipad|ipod/.test(ua);
-    const isMobile = /iphone|ipad|ipod|android|webos|blackberry|iemobile|opera mini/.test(ua);
+    const isAndroid = /android/.test(ua);
+    const isMobile = isIOS || isAndroid || /webos|blackberry|iemobile|opera mini/.test(ua);
     const isInIframe = window.self !== window.top;
 
-    setPlatformInfo({ isIOS, isMobile, isInIframe });
+    setPlatformInfo({ isIOS, isAndroid, isMobile, isInIframe });
+
+    // If it's iOS or inside iframe, we naturally need guides or special buttons
+    if (isIOS) {
+      setShowManualGuide(true);
+    }
   }, []);
 
   // Listen to the successful installation event to automatically hide and complete
@@ -53,36 +61,28 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({ isOpen, onClos
       return;
     }
 
-    // 2. iOS Safari manual guide
+    // 2. iOS Safari manual guide toggler
     if (platformInfo.isIOS) {
-      setStatusMessage("Para instalar en tu iPhone o iPad: Pulsa el botón de Compartir en Safari 📤 y selecciona 'Añadir a pantalla de inicio' ➕.");
+      setShowManualGuide(true);
       return;
     }
 
-    // 3. Native install prompt execution with a robust timeout check
-    const currentPrompt = (window as any).deferredPrompt;
+    // 3. Native install prompt execution
+    const currentPrompt = (window as any).deferredPrompt || (window.parent as any)?.deferredPrompt;
     if (currentPrompt) {
       setIsInstalling(true);
       
-      // Safety timeout: 4 seconds to clear the loading spinner to prevent the UI from freezing permanently
       const safetyTimeout = setTimeout(() => {
-        console.warn("[PWA Modal] Installation prompt choice timed out (safety trigger).");
+        console.warn("[PWA Modal] Installation prompt choice timed out.");
         setIsInstalling(false);
-        setStatusMessage("La solicitud de instalación tomó más tiempo de lo esperado. Si no apareció la ventana nativa, puedes intentar desde el menú de tu navegador.");
-        setTimeout(() => setStatusMessage(null), 6000);
+        setStatusMessage("La solicitud tardó más de lo esperado. Si no viste el cuadro de diálogo, puedes instalar manualmente desde el menú de tu navegador.");
       }, 4000);
 
       try {
         console.log("[PWA Modal] Launching browser native prompt...");
         await currentPrompt.prompt();
 
-        // Race between user choice and an additional timeout
-        const choicePromise = currentPrompt.userChoice;
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("TIMEOUT")), 15000)
-        );
-
-        const choiceResult = await Promise.race([choicePromise, timeoutPromise]);
+        const choiceResult = await currentPrompt.userChoice;
         clearTimeout(safetyTimeout);
 
         console.log(`[PWA Modal] User installation choice: ${choiceResult.outcome}`);
@@ -92,35 +92,27 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({ isOpen, onClos
           onInstallSuccess();
         } else {
           console.log("[PWA Modal] Native installation dismissed.");
-          setStatusMessage("Instalación cancelada. Puedes intentarlo de nuevo cuando desees.");
+          setStatusMessage("Instalación cancelada. Puedes instalarla cuando desees desde el menú del navegador.");
           setTimeout(() => setStatusMessage(null), 4000);
         }
       } catch (err: any) {
         clearTimeout(safetyTimeout);
-        if (err && err.message === "TIMEOUT") {
-          console.warn("[PWA Modal] User choice promise timed out.");
-          setStatusMessage("La confirmación tardó demasiado. Si se instaló correctamente, tu progreso está a salvo.");
-        } else {
-          console.error("[PWA Modal] Error displaying installation prompt:", err);
-          setStatusMessage("Error al iniciar el diálogo de instalación. Intenta desde el menú de tu navegador.");
-        }
-        setTimeout(() => setStatusMessage(null), 4000);
+        console.error("[PWA Modal] Error displaying installation prompt:", err);
+        setShowManualGuide(true);
       } finally {
-        // Safe state cleanup
         setIsInstalling(false);
-        // Explicitly clear deferredPrompt to prevent stale triggers
         (window as any).deferredPrompt = null;
       }
     } else {
-      console.warn("[PWA Modal] beforeinstallprompt is not active or available.");
-      setIsInstalling(true);
-      setStatusMessage("Solicitando instalador al navegador... Si no se inicia automáticamente, abre el menú de configuración de tu navegador y selecciona 'Instalar aplicación' o 'Agregar a la pantalla de inicio'.");
-      
-      // Release installation lock after 3 seconds if beforeinstallprompt is absent
-      setTimeout(() => {
-        setIsInstalling(false);
-      }, 3000);
+      console.warn("[PWA Modal] deferredPrompt is not available. Showing manual guide.");
+      setShowManualGuide(true);
     }
+  };
+
+  const handleForceConfirmDownloaded = () => {
+    // Let the user manually declare that they have already installed the app
+    // or want to stop seeing the prompt.
+    onInstallSuccess();
   };
 
   if (!isOpen) return null;
@@ -128,30 +120,33 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({ isOpen, onClos
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto">
           <motion.div
             id="pwa_install_modal"
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.3 }}
-            className="relative w-full max-w-lg overflow-hidden bg-gradient-to-b from-[#091526] to-[#040b14] border border-cyan-400/30 rounded-3xl p-6 shadow-2xl text-left"
+            className="relative w-full max-w-xl my-8 overflow-hidden bg-gradient-to-b from-[#0a172c] to-[#040c16] border border-cyan-400/30 rounded-3xl p-6 shadow-2xl text-left"
           >
-            {/* Soft Ambient Background Glow */}
-            <div className="absolute top-0 right-0 w-36 h-36 bg-[#00D4FF]/10 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-36 h-36 bg-purple-500/5 rounded-full blur-3xl pointer-events-none" />
+            {/* Ambient visual background glow */}
+            <div className="absolute top-0 right-0 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
 
-            <div className="flex justify-between items-start gap-4 relative z-10">
-              <div className="flex items-center space-x-3">
-                <div className="p-3 bg-[#113A63]/70 border border-cyan-400/30 rounded-2xl flex items-center justify-center shadow-lg shadow-cyan-500/10 shrink-0">
-                  <Download className="w-6 h-6 text-[#7EF9FF] animate-bounce" />
+            {/* Header */}
+            <div className="flex justify-between items-start gap-4 relative z-10 border-b border-white/5 pb-4">
+              <div className="flex items-center space-x-3.5">
+                <div className="p-3 bg-[#113a63]/80 border border-cyan-400/30 rounded-2xl flex items-center justify-center shadow-lg shadow-cyan-500/10 shrink-0">
+                  <Download className="w-6 h-6 text-[#7EF9FF] animate-pulse" />
                 </div>
                 <div>
-                  <div className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-cyan-500/15 text-[#7EF9FF] border border-[#7EF9FF]/20 text-[9px] font-mono font-bold uppercase tracking-wider mb-1.5">
+                  <div className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-cyan-500/15 text-[#7EF9FF] border border-[#7EF9FF]/20 text-[10px] font-mono font-bold uppercase tracking-wider mb-1">
                     <Sparkles className="w-3 h-3 text-[#7EF9FF]" />
-                    <span>Instalación Recomendada</span>
+                    <span>Experiencia Recomendada</span>
                   </div>
-                  <h3 className="font-sans font-bold text-lg text-white leading-tight">Instalar M.A.P.A.™ en tu Dispositivo</h3>
+                  <h3 className="font-sans font-extrabold text-xl text-white leading-tight">
+                    Descargar M.A.P.A.™ en tu Celular
+                  </h3>
                 </div>
               </div>
 
@@ -160,58 +155,153 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({ isOpen, onClos
                 className="p-1.5 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-lg transition-colors cursor-pointer border-none outline-none"
                 title="Cerrar"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4.5 h-4.5" />
               </button>
             </div>
 
+            {/* Body */}
             <div className="mt-4 space-y-4 relative z-10">
               <p className="text-xs sm:text-sm text-gray-300 leading-relaxed font-sans">
-                Para disfrutar de una experiencia óptima y fluida en tu proceso de 7 días, te recomendamos descargar la aplicación. Al instalarla en tu pantalla de inicio, podrás acceder de manera instantánea, sin barras de navegación del navegador y con un rendimiento superior.
+                Para garantizar que puedas realizar el **seguimiento diario de tus 7 días** de forma ininterrumpida, te sugerimos descargar el acceso directo en tu dispositivo. Es ligero, funciona de forma offline, y te permite ingresar a tu cuenta de inmediato.
               </p>
 
-              <div className="bg-[#113A63]/30 border border-cyan-400/20 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div className="text-left">
-                  <p className="text-[11px] font-mono text-cyan-300 font-bold uppercase tracking-wider">Acción rápida</p>
-                  <p className="text-[10px] text-gray-400 mt-0.5">Compatible con celulares, tablets y computadoras.</p>
+              {/* Conditional Layouts based on environment and platforms */}
+              {platformInfo.isInIframe && (
+                <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl space-y-3">
+                  <p className="text-xs text-amber-200 font-sans leading-relaxed">
+                    ⚠️ **Nota sobre el visor:** Te encuentras en el visor de pruebas. Para realizar la instalación nativa de la aplicación en tu celular o computadora, debes abrirla en una pestaña normal de tu navegador.
+                  </p>
+                  <button
+                    onClick={() => {
+                      window.open("https://mapa-dun.vercel.app", "_blank");
+                    }}
+                    className="w-full py-2.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold rounded-xl text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer border-none"
+                  >
+                    <span>Abrir en Pestaña Independiente</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-                
-                <button
-                  onClick={handleInstallClick}
-                  disabled={isInstalling}
-                  className="w-full sm:w-auto px-5 py-3 bg-gradient-to-r from-[#7EF9FF] to-[#00D4FF] hover:opacity-95 active:scale-98 text-slate-900 font-bold rounded-xl text-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow-lg shadow-cyan-400/15 select-none border-none outline-none disabled:opacity-50"
-                >
-                  {isInstalling ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-slate-900" />
-                  ) : platformInfo.isInIframe ? (
-                    <ExternalLink className="w-4 h-4" />
-                  ) : platformInfo.isMobile ? (
-                    <Smartphone className="w-4 h-4" />
-                  ) : (
-                    <Monitor className="w-4 h-4" />
-                  )}
-                  <span>
-                    {isInstalling ? "PROCESANDO..." : platformInfo.isInIframe ? "ABRIR EN NUEVA PESTAÑA" : "INSTALAR AHORA"}
-                  </span>
-                </button>
-              </div>
+              )}
 
+              {/* The installation triggers */}
+              {!platformInfo.isInIframe && (
+                <div className="space-y-4">
+                  {/* Default Call to Action Button */}
+                  {!showManualGuide && (
+                    <div className="bg-[#113A63]/30 border border-cyan-400/20 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                      <div className="text-left">
+                        <p className="text-xs font-mono text-cyan-300 font-bold uppercase tracking-wider">Instalación Rápida</p>
+                        <p className="text-[11px] text-gray-400 mt-0.5">La aplicación se descargará de manera instantánea y nativa en tu dispositivo.</p>
+                      </div>
+                      
+                      <button
+                        onClick={handleInstallClick}
+                        disabled={isInstalling}
+                        className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-[#7EF9FF] to-[#00D4FF] hover:opacity-95 text-slate-950 font-extrabold rounded-xl text-xs transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-lg shadow-cyan-400/20"
+                      >
+                        {isInstalling ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
+                        ) : (
+                          <Smartphone className="w-4 h-4" />
+                        )}
+                        <span>{isInstalling ? "PROCESANDO..." : "DESCARGAR AHORA"}</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Manual / iOS Safari / Generic Fallback Guides */}
+                  {showManualGuide && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="p-4 bg-slate-900/80 border border-cyan-400/20 rounded-2xl space-y-3.5"
+                    >
+                      <h4 className="text-xs font-extrabold text-[#7EF9FF] uppercase tracking-wider font-sans flex items-center space-x-2">
+                        <span>Guía de Instalación para tu Dispositivo</span>
+                      </h4>
+
+                      {platformInfo.isIOS ? (
+                        // iOS Safari manual visual steps
+                        <div className="space-y-3 text-xs text-gray-300 font-sans">
+                          <p className="text-[11px] text-cyan-300 font-medium">Sigue estos sencillos pasos desde Safari en tu iPhone o iPad:</p>
+                          <div className="space-y-2.5">
+                            <div className="flex items-start space-x-3 bg-white/5 p-2 rounded-xl">
+                              <div className="w-5 h-5 rounded-full bg-[#113a63] border border-cyan-400/30 text-[11px] text-[#7EF9FF] font-mono flex items-center justify-center shrink-0 font-bold">1</div>
+                              <p className="leading-relaxed">
+                                Toca el icono de <strong>Compartir (Share)</strong> en Safari: Busca el botón con forma de caja y flecha hacia arriba <span className="inline-flex items-center px-1.5 py-0.5 bg-white/10 rounded text-white"><Share className="w-3 h-3 text-cyan-300" /></span> (abajo en iPhone o arriba en iPad).
+                              </p>
+                            </div>
+                            <div className="flex items-start space-x-3 bg-white/5 p-2 rounded-xl">
+                              <div className="w-5 h-5 rounded-full bg-[#113a63] border border-cyan-400/30 text-[11px] text-[#7EF9FF] font-mono flex items-center justify-center shrink-0 font-bold">2</div>
+                              <p className="leading-relaxed">
+                                Desplázate hacia abajo en el menú de opciones y selecciona <strong>"Añadir a pantalla de inicio"</strong> <span className="inline-block font-bold text-cyan-300 text-sm">➕</span>.
+                              </p>
+                            </div>
+                            <div className="flex items-start space-x-3 bg-white/5 p-2 rounded-xl">
+                              <div className="w-5 h-5 rounded-full bg-[#113a63] border border-cyan-400/30 text-[11px] text-[#7EF9FF] font-mono flex items-center justify-center shrink-0 font-bold">3</div>
+                              <p className="leading-relaxed">
+                                En la esquina superior derecha, toca <strong>"Añadir"</strong> para finalizar. ¡Y listo! Ya tendrás M.A.P.A.™ como app móvil.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        // Android Chrome / Standard manual steps
+                        <div className="space-y-3 text-xs text-gray-300 font-sans">
+                          <p className="text-[11px] text-cyan-300 font-medium">Sigue estos pasos rápidos en tu navegador:</p>
+                          <div className="space-y-2.5">
+                            <div className="flex items-start space-x-3 bg-white/5 p-2 rounded-xl">
+                              <div className="w-5 h-5 rounded-full bg-[#113a63] border border-cyan-400/30 text-[11px] text-[#7EF9FF] font-mono flex items-center justify-center shrink-0 font-bold">1</div>
+                              <p className="leading-relaxed">
+                                Toca los <strong>tres puntos de opciones (⋮)</strong> en la esquina superior derecha de tu navegador actual.
+                              </p>
+                            </div>
+                            <div className="flex items-start space-x-3 bg-white/5 p-2 rounded-xl">
+                              <div className="w-5 h-5 rounded-full bg-[#113a63] border border-cyan-400/30 text-[11px] text-[#7EF9FF] font-mono flex items-center justify-center shrink-0 font-bold">2</div>
+                              <p className="leading-relaxed">
+                                Selecciona la opción que dice <strong>"Instalar aplicación"</strong> o bien <strong>"Añadir a pantalla de inicio"</strong>.
+                              </p>
+                            </div>
+                            <div className="flex items-start space-x-3 bg-white/5 p-2 rounded-xl">
+                              <div className="w-5 h-5 rounded-full bg-[#113a63] border border-cyan-400/30 text-[11px] text-[#7EF9FF] font-mono flex items-center justify-center shrink-0 font-bold">3</div>
+                              <p className="leading-relaxed">
+                                Confirma la acción para completar la descarga. Tendrás el icono directo en tu escritorio.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </div>
+              )}
+
+              {/* Status information messages */}
               <AnimatePresence>
                 {statusMessage && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="p-3 bg-cyan-500/10 border border-cyan-400/20 text-cyan-300 rounded-xl text-xs leading-relaxed font-sans"
+                    className="p-3.5 bg-cyan-500/10 border border-cyan-400/25 text-cyan-300 rounded-xl text-xs leading-relaxed font-sans font-medium"
                   >
                     {statusMessage}
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              <div className="pt-2 flex justify-end">
+              {/* Control Options (Skip / Manual confirmation) */}
+              <div className="pt-3 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-3">
+                <button
+                  onClick={handleForceConfirmDownloaded}
+                  className="w-full sm:w-auto text-[11px] text-[#7EF9FF] hover:underline bg-transparent border-none cursor-pointer outline-none font-mono py-1"
+                >
+                  Ya tengo descargada la App / No volver a mostrar
+                </button>
+
                 <button
                   onClick={onClose}
-                  className="text-gray-400 hover:text-white font-mono text-xs hover:underline bg-transparent border-none cursor-pointer outline-none"
+                  className="w-full sm:w-auto px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-xl text-xs transition-colors cursor-pointer border-none outline-none text-center"
                 >
                   Continuar en la web por ahora
                 </button>

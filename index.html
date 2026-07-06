@@ -13,6 +13,17 @@
     <link rel="apple-touch-icon" href="/icono-512x512.png" />
     <link rel="shortcut icon" href="/favicon.png" />
 
+    <!-- Capture PWA beforeinstallprompt instantly before modules load -->
+    <script>
+      window.deferredPrompt = null;
+      window.addEventListener("beforeinstallprompt", (e) => {
+        console.log("[PWA Early] Captured beforeinstallprompt event in head.");
+        e.preventDefault();
+        window.deferredPrompt = e;
+        window.dispatchEvent(new CustomEvent("pwa-prompt-available", { detail: e }));
+      });
+    </script>
+
     <!-- Open Graph (Facebook, WhatsApp, LinkedIn, Instagram) -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://ais-pre-3l3exsau7qh72pnxoznbkz-267921689760.us-east1.run.app/" />
