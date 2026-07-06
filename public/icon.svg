@@ -1,0 +1,156 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Background Soft Radial Gradient -->
+    <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="60%" stop-color="#FAF9FD" />
+      <stop offset="100%" stop-color="#EFEAF7" />
+    </radialGradient>
+
+    <!-- Turquoise to Purple Theme Gradients -->
+    <linearGradient id="turquoiseToPurple" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#72C7CF" />
+      <stop offset="50%" stop-color="#56346F" />
+      <stop offset="100%" stop-color="#411F66" />
+    </linearGradient>
+
+    <linearGradient id="lotusCenterGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#411F66" />
+      <stop offset="70%" stop-color="#72C7CF" />
+      <stop offset="100%" stop-color="#9DE7ED" />
+    </linearGradient>
+
+    <linearGradient id="lotusPetalLeft" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#411F66" />
+      <stop offset="50%" stop-color="#5B3E84" />
+      <stop offset="100%" stop-color="#72C7CF" />
+    </linearGradient>
+
+    <linearGradient id="lotusPetalRight" x1="100%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#411F66" />
+      <stop offset="50%" stop-color="#5B3E84" />
+      <stop offset="100%" stop-color="#72C7CF" />
+    </linearGradient>
+
+    <linearGradient id="pinStroke" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#72C7CF" />
+      <stop offset="100%" stop-color="#411F66" />
+    </linearGradient>
+
+    <!-- Soft Drop Shadows for Depth -->
+    <filter id="softShadow" x="-10%" y="-10%" width="125%" height="125%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#411F66" flood-opacity="0.12" />
+    </filter>
+    <filter id="glowLotus" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="5" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Base Circular Luxury Container -->
+  <g filter="url(#softShadow)">
+    <circle cx="256" cy="256" r="236" fill="url(#bgGlow)" />
+    <!-- Inner double-ring for premium finish -->
+    <circle cx="256" cy="256" r="230" fill="none" stroke="#72C7CF" stroke-width="1.5" opacity="0.4" />
+    <circle cx="256" cy="256" r="226" fill="none" stroke="#411F66" stroke-width="1" opacity="0.15" />
+  </g>
+
+  <!-- Harmonic/Concentric Rings (Emotional Calm Waves) -->
+  <g opacity="0.7">
+    <circle cx="256" cy="210" r="45" fill="none" stroke="#72C7CF" stroke-width="2" stroke-dasharray="4 6" opacity="0.5" />
+    <circle cx="256" cy="210" r="75" fill="none" stroke="#72C7CF" stroke-width="1.5" opacity="0.4" />
+    <circle cx="256" cy="210" r="105" fill="none" stroke="#411F66" stroke-width="1" stroke-dasharray="6 8" opacity="0.25" />
+    <circle cx="256" cy="210" r="140" fill="none" stroke="#72C7CF" stroke-width="1" opacity="0.2" />
+  </g>
+
+  <!-- Compass Rose Cardinal Lines (The M.A.P.A Route) -->
+  <g stroke="url(#turquoiseToPurple)" stroke-linecap="round" opacity="0.25">
+    <!-- N-S axis -->
+    <line x1="256" y1="50" x2="256" y2="370" stroke-width="2" />
+    <!-- W-E axis -->
+    <line x1="96" y1="210" x2="416" y2="210" stroke-width="2" />
+    <!-- Diagonal NW-SE -->
+    <line x1="143" y1="97" x2="369" y2="323" stroke-width="1" stroke-dasharray="4 4" />
+    <!-- Diagonal NE-SW -->
+    <line x1="369" y1="97" x2="143" y2="323" stroke-width="1" stroke-dasharray="4 4" />
+  </g>
+
+  <!-- Location Pin Outline (The Protective Container Shield) -->
+  <path d="M 256,56 
+           C 146,56 128,150 256,368 
+           C 384,150 366,56 256,56 Z" 
+        fill="none" 
+        stroke="url(#pinStroke)" 
+        stroke-width="12" 
+        stroke-linejoin="round"
+        stroke-linecap="round"
+        filter="url(#softShadow)" />
+
+  <!-- Secondary Internal Golden/Turquoise Highlight inside Pin -->
+  <path d="M 256,66 
+           C 156,66 140,150 256,348 
+           C 372,150 356,66 256,66 Z" 
+        fill="none" 
+        stroke="#72C7CF" 
+        stroke-width="2" 
+        opacity="0.6" 
+        stroke-linejoin="round" />
+
+  <!-- THE LOTUS FLOWER (Feminine Peace & Protection Emblem) -->
+  <g transform="translate(0, 10)" filter="url(#glowLotus)">
+    
+    <!-- Underlay Base Petals (Sepals) -->
+    <path d="M 256,225 C 205,225 180,195 180,180 C 205,180 235,205 256,225 Z" fill="#411F66" opacity="0.35" />
+    <path d="M 256,225 C 307,225 332,195 332,180 C 307,180 277,205 256,225 Z" fill="#411F66" opacity="0.35" />
+
+    <!-- Outer Lower Petals -->
+    <path d="M 256,220 C 185,220 155,165 168,135 C 190,160 225,200 256,220 Z" fill="url(#lotusPetalLeft)" opacity="0.75" />
+    <path d="M 256,220 C 327,220 357,165 344,135 C 322,160 287,200 256,220 Z" fill="url(#lotusPetalRight)" opacity="0.75" />
+
+    <!-- Mid Inner Petals -->
+    <path d="M 256,220 C 215,205 195,145 208,110 C 228,145 245,185 256,220 Z" fill="url(#lotusPetalLeft)" opacity="0.9" />
+    <path d="M 256,220 C 297,205 317,145 304,110 C 284,145 267,185 256,220 Z" fill="url(#lotusPetalRight)" opacity="0.9" />
+
+    <!-- Central Upright Core Petal -->
+    <path d="M 256,220 C 235,170 238,115 256,80 C 274,115 277,170 256,220 Z" fill="url(#lotusCenterGrad)" />
+    
+    <!-- Central Golden Core Light Source (The Awakened Center) -->
+    <circle cx="256" cy="155" r="5" fill="#72C7CF" />
+    <circle cx="256" cy="155" r="10" fill="none" stroke="#72C7CF" stroke-width="1.5" opacity="0.7" />
+    <line x1="256" y1="140" x2="256" y2="170" stroke="#72C7CF" stroke-width="1.5" opacity="0.8" />
+    <line x1="241" y1="155" x2="271" y2="155" stroke="#72C7CF" stroke-width="1.5" opacity="0.8" />
+  </g>
+
+  <!-- Sparkles of Mindfulness Activation -->
+  <g fill="#72C7CF">
+    <path d="M 125,105 L 129,101 L 125,97 L 121,101 Z" opacity="0.8" />
+    <path d="M 387,105 L 391,101 L 387,97 L 383,101 Z" opacity="0.8" />
+    <path d="M 256,30 L 260,24 L 256,18 L 252,24 Z" opacity="0.9" />
+  </g>
+  <g fill="#411F66">
+    <circle cx="110" cy="160" r="3.5" opacity="0.6" />
+    <circle cx="402" cy="160" r="3.5" opacity="0.6" />
+  </g>
+
+  <!-- Elegant Brand Typography (Discreet bottom branding) -->
+  <text x="256" y="445" 
+        font-family="'Inter', -apple-system, sans-serif" 
+        font-weight="800" 
+        font-size="34" 
+        fill="#411F66" 
+        letter-spacing="10" 
+        text-anchor="middle"
+        opacity="0.95">M.A.P.A.</text>
+        
+  <text x="256" y="475" 
+        font-family="'Inter', -apple-system, sans-serif" 
+        font-weight="600" 
+        font-size="12" 
+        fill="#72C7CF" 
+        letter-spacing="4" 
+        text-anchor="middle"
+        opacity="0.9">MUJER</text>
+
+  <!-- Small aesthetic bounding curves at the very bottom -->
+  <path d="M 210,492 Q 256,499 302,492" fill="none" stroke="#72C7CF" stroke-width="2" stroke-linecap="round" opacity="0.5" />
+</svg>

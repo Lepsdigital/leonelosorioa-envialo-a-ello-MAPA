@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>M.A.P.A.™ Mujer - Mapa de Activación y Protección Emocional</title>
+    
+    <!-- Standard Favicons with Cache Busting -->
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icono-192x192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icono-512x512.png" />
+    <link rel="apple-touch-icon" href="/icono-512x512.png" />
+    <link rel="shortcut icon" href="/favicon.png" />
+
+    <!-- Open Graph (Facebook, WhatsApp, LinkedIn, Instagram) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://ais-pre-3l3exsau7qh72pnxoznbkz-267921689760.us-east1.run.app/" />
+    <meta property="og:title" content="M.A.P.A.™ Mujer - Mapa de Activación y Protección Emocional" />
+    <meta property="og:description" content="Una experiencia interactiva de autodescubrimiento emocional impulsada por IA para comprender y regular la ansiedad." />
+    <meta property="og:image" content="/compartir.svg?v=2" />
+    <meta property="og:image:secure_url" content="/compartir.svg?v=2" />
+    <meta property="og:image:type" content="image/svg+xml" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <!-- Twitter Cards -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://ais-pre-3l3exsau7qh72pnxoznbkz-267921689760.us-east1.run.app/" />
+    <meta name="twitter:title" content="M.A.P.A.™ Mujer - Mapa de Activación y Protección Emocional" />
+    <meta name="twitter:description" content="Una experiencia interactiva de autodescubrimiento emocional impulsada por IA para comprender y regular la ansiedad." />
+    <meta name="twitter:image" content="/compartir.svg?v=2" />
+    
+    <!-- PWA Settings -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#07111F" />
+    
+    <!-- iOS support -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="M.A.P.A.™" />
+    <link rel="apple-touch-icon" href="/icono-512x512.png" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker
+            .register("/sw.js")
+            .then((reg) => {
+              console.log("[PWA] Service Worker registered successfully:", reg.scope);
+            })
+            .catch((err) => {
+              console.error("[PWA] Service Worker registration failed:", err);
+            });
+        });
+      }
+    </script>
+  </body>
+</html>
+

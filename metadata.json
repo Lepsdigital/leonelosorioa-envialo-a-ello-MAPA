@@ -1,0 +1,6 @@
+{
+  "name": "M.A.P.A.",
+  "description": "Mapa de Activación y Protección Emocional - Experiencia interactiva de autodescubrimiento emocional impulsada por IA para comprender la ansiedad.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
