@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
 import {
   Sparkles,
   MessageSquare,
@@ -20,7 +19,6 @@ import {
   Smile,
   AlertTriangle,
   ArrowRight,
-  ArrowLeft,
   User,
   HeartHandshake,
   Mail,
@@ -249,229 +247,8 @@ export const PremiumDashboard: React.FC<PremiumDashboardProps> = ({
 }) => {
   const { getShareText, shareToWhatsApp, shareWithFallback } = useWhatsAppShare();
 
-  const navigate = useNavigate();
-  const location = useLocation();
-
   // Active Tab
-  const [activeTab, setActiveTab] = useState<"coach" | "garden" | "challenges" | "evolution" | "share" | "milestones" | "diary" | null>(null);
-
-  // 3-Phase Completion States
-  const isAllDaysCompleted = Array.isArray(completedDays) && completedDays.length === 7;
-  
-  const [completionStep, setCompletionStep] = useState<"gift" | "completed">(() => {
-    const emailKey = String(userEmail || "").toLowerCase().trim();
-    const saved = localStorage.getItem(`MAPA_COMPLETION_STEP_${emailKey}`);
-    return (saved as "gift" | "completed") || "gift";
-  });
-
-  const [isSendingCompletion, setIsSendingCompletion] = useState(false);
-  const [completionEmailSent, setCompletionEmailSent] = useState(false);
-  const [emailSendError, setEmailSendError] = useState("");
-
-  const handleDownloadEbookAndProgress = () => {
-    // Open the ebook in new tab
-    window.open("https://f005.backblazeb2.com/file/M.A.P.A/Cu%C3%ADdate+para+Crecer.pdf", "_blank", "noopener,noreferrer");
-    
-    // Save state and progress to next phase
-    const emailKey = String(userEmail || "").toLowerCase().trim();
-    localStorage.setItem(`MAPA_COMPLETION_STEP_${emailKey}`, "completed");
-    setCompletionStep("completed");
-  };
-
-  const handleCompileAndSendReport = async () => {
-    setIsSendingCompletion(true);
-    setEmailSendError("");
-    setCompletionEmailSent(false);
-
-    try {
-      // 1. Generate the PDF in-memory using jsPDF
-      const doc = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4"
-      });
-
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 15;
-      const contentWidth = pageWidth - margin * 2;
-      let yPos = 20;
-
-      // Header background
-      doc.setFillColor(110, 72, 138); // #6E488A
-      doc.rect(margin, yPos, contentWidth, 18, "F");
-
-      // Brand Title
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(15);
-      doc.setTextColor(255, 255, 255);
-      doc.text("M.A.P.A.™ Mujer • REPORTE CLÍNICO DE GRADUACIÓN", margin + 5, yPos + 11);
-
-      yPos += 25;
-
-      // Subtitle
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
-      doc.setTextColor(232, 111, 163); // #E86FA3
-      doc.text("INFORME DE CULMINACIÓN DEL PROGRAMA DE 7 DÍAS", margin, yPos);
-      yPos += 6;
-
-      // System tagline
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(9);
-      doc.setTextColor(100, 100, 100);
-      doc.text("Sistema de Protección Emocional Inteligente", margin, yPos);
-      yPos += 8;
-
-      // User Block
-      doc.setFillColor(248, 245, 249);
-      doc.rect(margin, yPos, contentWidth, 22, "F");
-      
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.setTextColor(86, 52, 111); // #56346F
-      doc.text(`Usuaria Graduada: ${userName}`, margin + 5, yPos + 6);
-      doc.text(`Email Registrado: ${userEmail}`, margin + 5, yPos + 12);
-      doc.text(`Fecha de Graduación: ${new Date().toLocaleDateString("es-ES")} ${new Date().toLocaleTimeString("es-ES", {hour: '2-digit', minute:'2-digit'})}`, margin + 5, yPos + 18);
-      
-      yPos += 30;
-
-      // Progress Metrics Description
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.setTextColor(110, 72, 138);
-      doc.text("ANÁLISIS DE EVOLUCIÓN HISTÓRICA", margin, yPos);
-      yPos += 6;
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9.5);
-      doc.setTextColor(60, 60, 60);
-      
-      const p1 = `La usuaria ha completado con éxito el 100% del programa de 7 días "Mapa de Activación y Protección Emocional" (M.A.P.A.™ Mujer). A lo largo de este periodo, ha registrado sistemáticamente sus marcadores emocionales diariamente, logrando desactivar de manera sobresaliente el patrón cerebral de sobrepensamiento y activando la homeostasis vagal rítmica de su sistema nervioso autónomo.`;
-      const splitP1 = doc.splitTextToSize(p1, contentWidth);
-      doc.text(splitP1, margin, yPos);
-      yPos += splitP1.length * 4.5 + 4;
-
-      // Table of Logs if they exist
-      const logs = premiumData.evolutionLogs || [];
-      if (logs.length > 0) {
-        doc.setFillColor(110, 72, 138);
-        doc.rect(margin, yPos, contentWidth, 8, "F");
-
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(9);
-        doc.setTextColor(255, 255, 255);
-        doc.text("Día / Sesión", margin + 3, yPos + 5.5);
-        doc.text("Alerta Cerebral", margin + 45, yPos + 5.5);
-        doc.text("Ansiedad", margin + 80, yPos + 5.5);
-        doc.text("Rumiación", margin + 115, yPos + 5.5);
-        doc.text("Calidad Sueño", margin + 145, yPos + 5.5);
-
-        yPos += 8;
-
-        logs.forEach((log, index) => {
-          if (yPos > pageHeight - 20) {
-            doc.addPage();
-            yPos = 20;
-          }
-          doc.setFillColor(index % 2 === 0 ? 255 : 248, index % 2 === 0 ? 255 : 245, index % 2 === 0 ? 255 : 249);
-          doc.rect(margin, yPos, contentWidth, 7, "F");
-
-          doc.setFont("helvetica", "normal");
-          doc.setFontSize(8.5);
-          doc.setTextColor(60, 60, 60);
-          doc.text(`Día ${index + 1} (${log.date})`, margin + 3, yPos + 5);
-          doc.text(`${log.value.activacion}%`, margin + 45, yPos + 5);
-          doc.text(`${log.value.ansiedad}%`, margin + 80, yPos + 5);
-          doc.text(`${log.value.rumiacion}%`, margin + 115, yPos + 5);
-          doc.text(`${log.value.sueno}%`, margin + 145, yPos + 5);
-
-          yPos += 7;
-        });
-      }
-
-      yPos += 10;
-      if (yPos > pageHeight - 40) {
-        doc.addPage();
-        yPos = 20;
-      }
-
-      // Conclusion box
-      doc.setFillColor(242, 230, 245);
-      doc.rect(margin, yPos, contentWidth, 24, "F");
-      
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.setTextColor(110, 72, 138);
-      doc.text("DIAGNÓSTICO SÍNCRONO DE MAESTRÍA EMOCIONAL", margin + 5, yPos + 6);
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8.5);
-      doc.setTextColor(80, 50, 100);
-      const conclusionTxt = `Se observa una transición exitosa desde un estado inicial de desregulación simpática hacia una homeostasis vagal armónica y calibración cognitiva resiliente. Se recomienda a la usuaria mantener el anclaje diario de su respiración y su bitácora íntima de por vida para preservar estas frecuencias cerebrales estables.`;
-      const splitConclusion = doc.splitTextToSize(conclusionTxt, contentWidth - 10);
-      doc.text(splitConclusion, margin + 5, yPos + 12);
-
-      // Footnote
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7);
-      doc.setTextColor(150, 150, 150);
-      doc.text("M.A.P.A.™ Mujer (Mapa de Activación y Protección Emocional) es una marca registrada de By Tu Poder Mental Mujer™.", margin, pageHeight - 10);
-
-      // Save PDF Locally
-      doc.save(`MAPA_Mujer_Reporte_Clinico_7Dias_${userName.replace(/\s+/g, '_')}.pdf`);
-
-      // 2. Extract base64 string from pdf
-      const pdfBase64 = doc.output('datauristring');
-
-      // 3. Post base64 data to backend
-      const response = await fetch("/api/premium/complete-program", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("MAPA_ACCESS_TOKEN") || ""}`
-        },
-        body: JSON.stringify({ pdfBase64 })
-      });
-
-      const resData = await response.json();
-      if (response.ok && resData.success) {
-        setCompletionEmailSent(true);
-      } else {
-        setEmailSendError(resData.error || "Ocurrió un error al despachar el respaldo.");
-      }
-
-    } catch (err: any) {
-      console.error("Error generating or emailing completion PDF:", err);
-      setEmailSendError("No se pudo enviar el correo con el informe clínico, pero tu PDF ha sido compilado y descargado localmente con éxito.");
-    } finally {
-      setIsSendingCompletion(false);
-    }
-  };
-
-  // Synchronize router location -> activeTab state
-  useEffect(() => {
-    const path = location.pathname;
-    const tabMatch = path.match(/\/dashboard\/(coach|garden|challenges|evolution|share|milestones|diary)/);
-    if (tabMatch) {
-      const matchedTab = tabMatch[1] as any;
-      if (activeTab !== matchedTab) {
-        setActiveTab(matchedTab);
-      }
-    } else if (path === "/dashboard") {
-      if (activeTab !== null) {
-        setActiveTab(null);
-      }
-    }
-  }, [location.pathname]);
-
-  // Synchronize activeTab state -> router location
-  useEffect(() => {
-    const pathToMatch = activeTab ? `/dashboard/${activeTab}` : "/dashboard";
-    if (location.pathname !== pathToMatch) {
-      navigate(pathToMatch);
-    }
-  }, [activeTab]);
+  const [activeTab, setActiveTab] = useState<"coach" | "garden" | "challenges" | "evolution" | "share" | "milestones" | "diary">("coach");
   const [geminiActive, setGeminiActive] = useState<boolean>(false);
   const [lastMatchedCategory, setLastMatchedCategory] = useState<any | null>(null);
 
@@ -1040,215 +817,6 @@ export const PremiumDashboard: React.FC<PremiumDashboardProps> = ({
     }
   };
 
-  const exportEvolutionPDF = () => {
-    try {
-      const doc = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-      });
-
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 20;
-      const contentWidth = pageWidth - 2 * margin;
-
-      let yPos = 20;
-
-      // Header Brand bar
-      doc.setFillColor(110, 72, 138); // #6E488A
-      doc.rect(margin, yPos, contentWidth, 3, "F");
-      yPos += 10;
-
-      // Title
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(22);
-      doc.setTextColor(110, 72, 138);
-      doc.text("M.A.P.A.™ Mujer", margin, yPos);
-      
-      // WhatsApp Branding Accent badge on top right
-      doc.setFillColor(37, 211, 102); // WhatsApp green
-      doc.circle(pageWidth - margin - 10, yPos - 2, 5, "F");
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.setTextColor(255, 255, 255);
-      doc.text("WA", pageWidth - margin - 12.5, yPos - 1);
-
-      yPos += 7;
-
-      // Subtitle
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(13);
-      doc.setTextColor(232, 111, 163); // #E86FA3
-      doc.text("INFORME DE EVOLUCIÓN CLÍNICA Y BIENESTAR", margin, yPos);
-      yPos += 6;
-
-      // Creator info
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(9);
-      doc.setTextColor(100, 100, 100);
-      doc.text("Sistema de Protección Emocional Inteligente", margin, yPos);
-      yPos += 8;
-
-      // User Information block
-      doc.setFillColor(248, 245, 249);
-      doc.rect(margin, yPos, contentWidth, 22, "F");
-      
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.setTextColor(86, 52, 111); // #56346F
-      doc.text(`Usuaria: ${userName}`, margin + 5, yPos + 6);
-      doc.text(`Correo electrónico: ${userEmail}`, margin + 5, yPos + 12);
-      doc.text(`Fecha de Emisión: ${new Date().toLocaleDateString("es-ES")} ${new Date().toLocaleTimeString("es-ES", {hour: '2-digit', minute:'2-digit'})}`, margin + 5, yPos + 18);
-      
-      yPos += 30;
-
-      // Section 1: Clinical Metrics Evolution
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
-      doc.setTextColor(110, 72, 138);
-      doc.text("1. MÉTRICAS DIARIAS DE AUTOGESTIÓN EMOCIONAL", margin, yPos);
-      yPos += 6;
-
-      // Draw table headers
-      doc.setFillColor(110, 72, 138);
-      doc.rect(margin, yPos, contentWidth, 8, "F");
-      
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      doc.setTextColor(255, 255, 255);
-      doc.text("Fecha/Día", margin + 3, yPos + 5.5);
-      doc.text("Activación Emocional", margin + 35, yPos + 5.5);
-      doc.text("Ansiedad Interceptiva", margin + 75, yPos + 5.5);
-      doc.text("Rumiación Mental", margin + 115, yPos + 5.5);
-      doc.text("Calidad del Sueño", margin + 150, yPos + 5.5);
-      
-      yPos += 8;
-
-      // Populate table with logs
-      const logs = premiumData.evolutionLogs || [];
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      
-      if (logs.length === 0) {
-        doc.setTextColor(120, 120, 120);
-        doc.text("No se registran métricas de evolución aún. Completa tus tests diarios.", margin + 5, yPos + 8);
-        yPos += 15;
-      } else {
-        logs.forEach((log, idx) => {
-          if (idx % 2 === 1) {
-            doc.setFillColor(252, 249, 253);
-            doc.rect(margin, yPos, contentWidth, 8, "F");
-          }
-          
-          doc.setTextColor(60, 60, 60);
-          doc.text(`Día ${idx + 1} (${log.date})`, margin + 3, yPos + 5.5);
-          doc.text(`${log.value.activacion}%`, margin + 35, yPos + 5.5);
-          doc.text(`${log.value.ansiedad}%`, margin + 75, yPos + 5.5);
-          doc.text(`${log.value.rumiacion}%`, margin + 115, yPos + 5.5);
-          doc.text(`${log.value.sueno}%`, margin + 150, yPos + 5.5);
-          
-          yPos += 8;
-        });
-      }
-
-      yPos += 8;
-
-      // Section 2: Clinical Summary Stats
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
-      doc.setTextColor(110, 72, 138);
-      doc.text("2. ESTADÍSTICAS DE IMPACTO CLÍNICO ACUMULADO", margin, yPos);
-      yPos += 6;
-
-      const statItems = [
-        { label: "Activación Emocional", val: "Disminuyó 40%", desc: "Simulación neural acumulativa", color: [232, 111, 163] },
-        { label: "Ansiedad Interceptiva", val: "Reducida en un 38%", desc: "Intercepción de reflejos de pánico", color: [54, 196, 216] },
-        { label: "Rumiación Mental", val: "-52% Ciclos", desc: "Cuestionamientos cognitivos", color: [110, 72, 138] },
-        { label: "Calidad del Sueño", val: "+70% Eficacia", desc: "Sintonización cerebral nocturna", color: [37, 211, 102] }
-      ];
-
-      statItems.forEach((stat, idx) => {
-        const xOffset = margin + (idx % 2) * (contentWidth / 2 + 2);
-        const yOffset = yPos + Math.floor(idx / 2) * 18;
-
-        doc.setFillColor(250, 248, 251);
-        doc.rect(xOffset, yOffset, contentWidth / 2 - 2, 15, "F");
-        
-        doc.setFillColor(stat.color[0], stat.color[1], stat.color[2]);
-        doc.rect(xOffset, yOffset, 1.5, 15, "F");
-
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(8);
-        doc.setTextColor(120, 120, 120);
-        doc.text(stat.label.toUpperCase(), xOffset + 4, yOffset + 4.5);
-
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(11);
-        doc.setTextColor(stat.color[0], stat.color[1], stat.color[2]);
-        doc.text(stat.val, xOffset + 4, yOffset + 9.5);
-
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(7.5);
-        doc.setTextColor(140, 140, 140);
-        doc.text(stat.desc, xOffset + 4, yOffset + 13.5);
-      });
-
-      yPos += 42;
-
-      // Section 3: Call to Action & Invitation
-      doc.setFillColor(235, 252, 241); // Light green box
-      doc.rect(margin, yPos, contentWidth, 26, "F");
-      
-      doc.setDrawColor(37, 211, 102);
-      doc.setLineWidth(0.5);
-      doc.rect(margin, yPos, contentWidth, 26, "D");
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.setTextColor(18, 140, 126);
-      doc.text("🌟 ¿QUIERES LOGRAR EL MISMO CAMBIO EN TU VIDA?", margin + 5, yPos + 6);
-      
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8.5);
-      doc.setTextColor(30, 30, 30);
-      doc.text("Si compartes este informe con amigas, seres queridos o familiares, invítales a descubrir", margin + 5, yPos + 12);
-      doc.text("su propio perfil de reactividad emocional mediante el test gratis inicial de M.A.P.A. Mujer.", margin + 5, yPos + 17);
-      
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9.5);
-      doc.setTextColor(18, 140, 126);
-      doc.text("Iniciar Test Gratis aquí 👉 https://quizmapa.tupodermental.club/", margin + 5, yPos + 22);
-
-      // Footer
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7.5);
-      doc.setTextColor(150, 150, 150);
-      doc.text("M.A.P.A.™ Mujer (Mapa de Activación y Protección Emocional) es una marca registrada de By Tu Poder Mental Mujer™.", margin, pageHeight - 10);
-
-      doc.save(`MAPA_Mujer_Mi_Evolucion_${userName.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`);
-    } catch (error) {
-      console.error("Error al exportar evolución PDF: ", error);
-      alert("Ocurrió un error al generar el PDF de evolución. Por favor intenta de nuevo.");
-    }
-  };
-
-  const shareEvolutionWhatsApp = () => {
-    const userProfileName = userName || "Usuaria de M.A.P.A.";
-    
-    let statsDetail = "";
-    if (premiumData.evolutionLogs && premiumData.evolutionLogs.length > 0) {
-      statsDetail = premiumData.evolutionLogs.map((log, idx) => {
-        return `📅 Día ${idx + 1} (${log.date}):\n  • Activación: ${log.value.activacion}%\n  • Ansiedad: ${log.value.ansiedad}%\n  • Rumiación: ${log.value.rumiacion}%\n  • Sueño: ${log.value.sueno}%\n`;
-      }).join("\n");
-    }
-
-    const shareText = `📊 *Mi Reporte de Evolución de 7 Días en M.A.P.A.™ Mujer* 🌸\n\nHola, quiero compartirte mi avance y calibración de paz de estos días en mi programa de autogestión emocional:\n\n${statsDetail}\n🏆 ¡He progresado enormemente regulando mis hábitos y desactivando la alerta cerebral de estrés!\n\nEste valioso programa fue creado para ayudarnos a las mujeres a recuperar el control de nuestra mente y cuerpo. 💕\n\nSi tú también sufres de sobrepensamiento, ansiedad, estrés o insomnio, te invito de corazón a realizar tu propio Test Gratis e iniciar tu camino de sanación emocional hoy mismo aquí:\n👉 https://quizmapa.tupodermental.club/\n\n#MAPAMujer #ByTuPoderMental #Bienestar #SaludMental`;
-
-    const link = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
-    window.open(link, "_blank", "noopener,noreferrer");
-  };
-
   // Marketing shares
   const shareAssets = [
     {
@@ -1272,17 +840,7 @@ export const PremiumDashboard: React.FC<PremiumDashboardProps> = ({
       <div className="absolute top-0 right-0 w-80 h-80 bg-[#36C4D8]/5 rounded-full blur-3xl -z-10 pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#E36DB4]/5 rounded-full blur-3xl -z-10 pointer-events-none" />
 
-      <AnimatePresence mode="wait">
-        {activeTab === null ? (
-          <motion.div
-            key="dashboard_hub"
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -15 }}
-            transition={{ duration: 0.35, ease: "easeOut" }}
-            className="space-y-8"
-          >
-            {/* Header Panel */}
+      {/* Header Panel */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-[#6E488A]/12 pb-6">
         <div>
           <div className="flex items-center gap-3 mb-2">
@@ -1374,548 +932,111 @@ export const PremiumDashboard: React.FC<PremiumDashboardProps> = ({
         </div>
       </div>
 
-      {/* 🏆 FLOW DE FINALIZACIÓN ABSOLUTA EN 3 FASES (DÍA 7 COMPLETADO) */}
-      {isAllDaysCompleted && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.98 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="p-6 md:p-8 rounded-3xl border-2 border-dashed border-[#E36DB4] bg-[#EDE0F0]/20 space-y-6 relative overflow-hidden"
+      {/* Tabs Navigation */}
+      <div className="flex flex-wrap gap-2 sm:gap-3 border-b border-[#6E488A]/12 pb-4">
+        <motion.button
+          whileHover={{ scale: 1.05, y: -2 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setActiveTab("coach")}
+          className={`flex items-center gap-2 sm:gap-3 px-3 py-2.5 sm:px-5 sm:py-3.5 rounded-xl text-xs sm:text-sm font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+            activeTab === "coach"
+              ? "bg-[#EDE0F0] border-2 border-[#6E488A] text-[#6E488A] shadow-sm"
+              : "hover:bg-[#EDE0F0]/50 border border-transparent text-[#56346F]/80 hover:text-[#6E488A]"
+          }`}
         >
-          {/* Decorative glowing gradient behind the completion card */}
-          <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-[#E36DB4]/15 to-[#36C4D8]/15 rounded-full blur-2xl pointer-events-none -z-10 animate-pulse" />
+          <Brain className="w-4 h-4 sm:w-5 sm:h-5 text-[#36C4D8]" />
+          <span>🧠 Mentora Clara</span>
+        </motion.button>
 
-          {completionStep === "gift" ? (
-            /* FASE 1: Entrega del Premio Adicional (Ebook "Cuídate para Crecer") */
-            <motion.div
-              key="phase1_gift"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-6 text-center max-w-2xl mx-auto"
-            >
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-[#E36DB4] to-[#6E488A] text-white shadow-md animate-bounce">
-                <Award className="w-9 h-9" />
-              </div>
-              
-              <div className="space-y-2">
-                <span className="text-xs font-black uppercase tracking-widest text-[#E36DB4] font-mono block">
-                  🌸 FASE 1 • ¡COMPLETADO CON ÉXITO!
-                </span>
-                <h3 className="text-2xl md:text-3xl font-black text-[#6E488A] leading-tight font-display">
-                  ¡Felicitaciones por tu Maestría Emocional, {userName}!
-                </h3>
-                <p className="text-sm text-[#56346F]/80 leading-relaxed">
-                  Has culminado con orgullo y valentía tus 7 días de recalibración mental. Como testimonio de tu resiliencia y compromiso con tu bienestar, te otorgamos tu Premio de Finalización:
-                </p>
-              </div>
+        <motion.button
+          whileHover={{ scale: 1.05, y: -2 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setActiveTab("garden")}
+          className={`flex items-center gap-2 sm:gap-3 px-3 py-2.5 sm:px-5 sm:py-3.5 rounded-xl text-xs sm:text-sm font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+            activeTab === "garden"
+              ? "bg-[#EDE0F0]/70 border-2 border-[#36C4D8] text-[#36C4D8] shadow-sm"
+              : "hover:bg-[#EDE0F0]/50 border border-transparent text-[#56346F]/80 hover:text-[#6E488A]"
+          }`}
+        >
+          <Smile className="w-4 h-4 sm:w-5 sm:h-5 text-[#36C4D8]" />
+          <span>🌿 Jardín de Paz</span>
+        </motion.button>
 
-              {/* Ebook presentation card */}
-              <div className="p-5 rounded-2xl border-2 border-[#E36DB4]/30 bg-white shadow-sm flex flex-col sm:flex-row items-center gap-5 text-left relative overflow-hidden">
-                <div className="w-24 h-32 bg-gradient-to-br from-[#E36DB4] to-[#6E488A] rounded-xl shadow-md shrink-0 flex flex-col justify-between p-3 text-white text-center select-none border border-white/20">
-                  <span className="text-[9px] uppercase font-mono font-extrabold tracking-widest bg-white/20 px-1 py-0.5 rounded">Ebook</span>
-                  <BookOpen className="w-8 h-8 mx-auto text-amber-300" />
-                  <span className="text-[10px] font-black leading-tight line-clamp-2">CUÍDATE PARA CRECER</span>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="text-lg font-black text-[#6E488A] leading-tight">
-                    Ebook: "Cuídate para Crecer"
-                  </h4>
-                  <p className="text-xs text-slate-500 font-mono">
-                    Autor: <strong className="text-slate-700 font-bold">Ana Pérez</strong> • Edición Especial M.A.P.A.™
-                  </p>
-                  <p className="text-xs text-[#56346F]/80 leading-relaxed">
-                    Un compendio práctico de autocuidado estratégico, nutrición cognitiva y anclajes neurales diseñado para guiarte en tu camino continuo de sanación de por vida.
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <button
-                  onClick={handleDownloadEbookAndProgress}
-                  className="px-8 py-4 rounded-2xl bg-[#E36DB4] hover:bg-[#c95197] text-white font-black text-base shadow-md hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer inline-flex items-center gap-3 border-none outline-none"
-                >
-                  <Download className="w-5 h-5" />
-                  <span>RECLAMAR PREMIO Y CONTINUAR ➔</span>
-                </button>
-              </div>
-            </motion.div>
-          ) : (
-            /* FASE 2 & FASE 3: Transición exitosa, Informe PDF Automatizado & Upsell M.A.P.A. Care */
-            <motion.div
-              key="phase2_3_completed"
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="space-y-8"
-            >
-              {/* Header block with success checkmark */}
-              <div className="text-center max-w-2xl mx-auto space-y-4">
-                <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-br from-[#36C4D8] to-[#2DB3C7] text-white shadow-md">
-                  <CheckCircle className="w-8 h-8" />
-                </div>
-                <div className="space-y-1">
-                  <span className="text-xs font-black uppercase tracking-widest text-[#36C4D8] font-mono block">
-                    🎓 FASE 2 • PROCESO CULMINADO CON ÉXITO
-                  </span>
-                  <h3 className="text-2xl md:text-3xl font-black text-[#6E488A] leading-tight font-display">
-                    Programa M.A.P.A.™ Mujer Concluido
-                  </h3>
-                  <p className="text-sm text-[#56346F]/80 leading-relaxed">
-                    Has finalizado exitosamente el ecosistema completo de <strong>M.A.P.A.™ Mujer - Mapa de Activación y Protección Emocional</strong>. Tu historial clínico de estos 7 días de calibración neuro-vagal está listo para ser compilado y descargado.
-                  </p>
-                </div>
-              </div>
-
-              {/* Phase 2 Area: Report PDF Compiler */}
-              <div className="p-6 rounded-2xl border-2 border-[#36C4D8]/30 bg-white shadow-sm max-w-xl mx-auto space-y-4 text-center">
-                <div className="space-y-2">
-                  <h4 className="text-base font-black text-[#6E488A]">
-                    Compila tu Informe Clínico e Institucional
-                  </h4>
-                  <p className="text-xs text-slate-500 leading-relaxed">
-                    Haz clic a continuación para generar tu reporte profesional de 7 días. El sistema descargará el PDF en tu dispositivo y enviará una copia oficial síncrona a tu correo de registro.
-                  </p>
-                </div>
-
-                <div className="space-y-3">
-                  <button
-                    onClick={handleCompileAndSendReport}
-                    disabled={isSendingCompletion}
-                    className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-[#36C4D8] hover:bg-[#2DB3C7] text-white font-black text-sm shadow-md transition-all cursor-pointer inline-flex items-center justify-center gap-2 border-none outline-none disabled:opacity-50"
-                  >
-                    {isSendingCompletion ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        <span>COMPILANDO E INICIANDO ENVÍO...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Download className="w-4 h-4" />
-                        <span>COMPILAR Y DESCARGAR INFORME CLÍNICO (PDF)</span>
-                      </>
-                    )}
-                  </button>
-
-                  {completionEmailSent && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="text-xs text-emerald-600 font-bold bg-emerald-50 border border-emerald-200 p-2.5 rounded-lg inline-flex items-center gap-2 mx-auto"
-                    >
-                      <Check className="w-4 h-4" />
-                      <span>¡Informe enviado exitosamente a {userEmail}! Revisa tu buzón de entrada (e incluso Spam).</span>
-                    </motion.div>
-                  )}
-
-                  {emailSendError && (
-                    <div className="text-xs text-amber-600 font-bold bg-amber-50 border border-amber-200 p-2.5 rounded-lg inline-flex items-center gap-1.5 mx-auto">
-                      <Info className="w-4 h-4" />
-                      <span>{emailSendError}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Phase 3 Area: Elegant Premium Upsell (M.A.P.A.™ Care) */}
-              <div className="pt-6 border-t border-[#6E488A]/12 max-w-2xl mx-auto space-y-6">
-                <div className="text-center space-y-1">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-[#E36DB4] font-mono block">
-                    💎 FASE 3 • PROTECCIÓN CONTINUA E ILIMITADA
-                  </span>
-                  <h4 className="text-lg md:text-xl font-black text-[#6E488A] leading-tight font-display">
-                    Siguiente Nivel: Ecosistema Clínico M.A.P.A.™ Care
-                  </h4>
-                  <p className="text-xs text-slate-500 leading-relaxed">
-                    Tu proceso de 7 días te devolvió la homeostasis vagal inicial. Ahora es momento de blindar tu mente de por vida con nuestra membresía avanzada.
-                  </p>
-                </div>
-
-                {/* Upsell presentation box */}
-                <div className="p-6 rounded-2xl bg-gradient-to-b from-[#6E488A]/10 to-[#EDE0F0]/40 border-2 border-[#E36DB4]/30 shadow-md flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
-                  <div className="space-y-4 text-left">
-                    <div>
-                      <h5 className="text-base font-black text-[#6E488A] flex items-center gap-2">
-                        M.A.P.A.™ Care <span className="text-[10px] bg-[#E36DB4] text-white px-2 py-0.5 rounded-full">Suscripción Premium</span>
-                      </h5>
-                      <p className="text-xs text-[#56346F]/70 mt-1 leading-relaxed">
-                        Accede a herramientas clínicas superiores y soporte especializado continuo para no retroceder jamás:
-                      </p>
-                    </div>
-
-                    <ul className="space-y-2.5 font-semibold">
-                      <li className="flex items-start gap-2 text-xs text-[#56346F]">
-                        <span className="text-[#36C4D8] text-sm shrink-0">🌟</span>
-                        <span><strong>Contención Clínica Inteligente 24/7</strong>: Chat clínico permanente de nivel profesional con agentes de acompañamiento.</span>
-                      </li>
-                      <li className="flex items-start gap-2 text-xs text-[#56346F]">
-                        <span className="text-[#36C4D8] text-sm shrink-0">🧘‍♀️</span>
-                        <span><strong>Sesiones Grupales en Vivo</strong>: Sesiones de contención, regulación integradora y dinámicas terapéuticas mensuales.</span>
-                      </li>
-                      <li className="flex items-start gap-2 text-xs text-[#56346F]">
-                        <span className="text-[#36C4D8] text-sm shrink-0">🧠</span>
-                        <span><strong>Ejercicios Clínicos Avanzados</strong>: Protocolos avanzados de activación y regeneración neural para insomnio crónico y ansiedad.</span>
-                      </li>
-                    </ul>
-                  </div>
-
-                  <div className="shrink-0 text-center space-y-3 p-4 bg-white/80 rounded-2xl border border-[#EDE0F0] shadow-sm min-w-[180px]">
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-bold text-[#E36DB4] uppercase tracking-widest block font-mono">Inversión</span>
-                      <div className="text-2xl font-black text-[#6E488A] font-mono">
-                        $19.9 <span className="text-xs font-bold text-slate-500 font-sans">/ mes</span>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => window.open("https://pvmapacare.tupodermental.club/", "_blank", "noopener,noreferrer")}
-                      className="w-full px-5 py-3 rounded-xl bg-gradient-to-r from-[#36C4D8] to-[#E36DB4] hover:opacity-90 text-white font-black text-xs shadow-md transition-all cursor-pointer border-none outline-none"
-                    >
-                      SUSCRIBIRSE ➔
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
+        <motion.button
+          whileHover={{ scale: 1.05, y: -2 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setActiveTab("challenges")}
+          className={`flex items-center gap-2 sm:gap-3 px-3 py-2.5 sm:px-5 sm:py-3.5 rounded-xl text-xs sm:text-sm font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+            activeTab === "challenges"
+              ? "bg-[#EDE0F0]/70 border-2 border-[#E36DB4] text-[#E36DB4] shadow-sm"
+              : "hover:bg-[#EDE0F0]/50 border border-transparent text-[#56346F]/80 hover:text-[#6E488A]"
+          }`}
+        >
+          <Award className="w-4 h-4 sm:w-5 sm:h-5 text-[#E36DB4]" />
+          <span>🎯 Retos Activos™</span>
+          {challenges.filter(c => !c.completed).length > 0 && (
+            <span className="px-1.5 py-0.5 rounded bg-[#EDE0F0] border border-[#E36DB4]/30 text-[10px] sm:text-xs font-mono font-black text-[#E36DB4]">
+              {challenges.filter(c => !c.completed).length}
+            </span>
           )}
-        </motion.div>
-      )}
+        </motion.button>
 
-      {/* Premium Space Dashboard Navigation Hub */}
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-[#EDE0F0]/40 p-4 rounded-2xl border border-[#6E488A]/12">
-          <div>
-            <span className="text-[10px] font-bold text-[#E36DB4] uppercase tracking-widest block font-mono">
-              💎 Módulos de Fortificación Neural Activos
-            </span>
-            <h3 className="text-sm font-black text-[#6E488A] font-sans">
-              HERRAMIENTAS CLÍNICAS Y DE REGULACIÓN EMOCIONAL
-            </h3>
-          </div>
-          <span className="self-start sm:self-center text-[11px] font-extrabold bg-[#EDE0F0] text-[#6E488A] px-3 py-1.5 rounded-full border border-[#6E488A]/20 shadow-sm flex items-center gap-1.5 shrink-0">
-            <Sparkles className="w-3.5 h-3.5 text-[#36C4D8] animate-pulse" />
-            7 Módulos Desbloqueados
-          </span>
-        </div>
+        <motion.button
+          whileHover={{ scale: 1.05, y: -2 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setActiveTab("evolution")}
+          className={`flex items-center gap-2 sm:gap-3 px-3 py-2.5 sm:px-5 sm:py-3.5 rounded-xl text-xs sm:text-sm font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+            activeTab === "evolution"
+              ? "bg-[#EDE0F0] border-2 border-[#6E488A] text-[#6E488A] shadow-sm"
+              : "hover:bg-[#EDE0F0]/50 border border-transparent text-[#56346F]/80 hover:text-[#6E488A]"
+          }`}
+        >
+          <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-[#36C4D8]" />
+          <span>📈 Mi Evolución™</span>
+        </motion.button>
 
-        <div className="grid grid-cols-1 min-[480px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 pb-6 border-b border-[#6E488A]/12">
-          {/* Module 1: Mentora Clara */}
-          <motion.button
-            whileHover={{ scale: 1.02, y: -2 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setActiveTab("coach")}
-            className={`flex flex-col items-start text-left p-4 rounded-2xl transition-all cursor-pointer border-2 min-h-[145px] justify-between gap-3 ${
-              activeTab === "coach"
-                ? "bg-gradient-to-br from-[#EDE0F0] to-[#E36DB4]/5 border-[#6E488A] shadow-[0_12px_24px_rgba(110,72,138,0.12)]"
-                : "bg-white hover:bg-[#FAF7F9] border-[#6E488A]/10 hover:border-[#6E488A]/40 text-[#56346F]/85 shadow-sm"
-            }`}
-          >
-            <div className="flex items-center justify-between w-full">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                activeTab === "coach" ? "bg-[#36C4D8]/15" : "bg-[#EDE0F0]/50"
-              }`}>
-                <Brain className="w-5 h-5 text-[#36C4D8]" />
-              </div>
-              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                activeTab === "coach" ? "bg-[#E36DB4]/20 text-[#6E488A]" : "bg-slate-100 text-slate-500"
-              }`}>
-                {activeTab === "coach" ? "• SELECCIONADO" : "Soporte IA"}
-              </span>
-            </div>
-            <div>
-              <h4 className={`text-base font-black tracking-tight ${
-                activeTab === "coach" ? "text-[#6E488A]" : "text-[#56346F]"
-              }`}>
-                🧠 Mentora Clara
-              </h4>
-              <p className="text-[11px] text-[#56346F]/80 mt-1 leading-snug">
-                Soporte de descompresión emocional inmediata con nuestra guía de IA.
-              </p>
-            </div>
-          </motion.button>
+        <motion.button
+          whileHover={{ scale: 1.05, y: -2 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setActiveTab("diary")}
+          className={`flex items-center gap-2 sm:gap-3 px-3 py-2.5 sm:px-5 sm:py-3.5 rounded-xl text-xs sm:text-sm font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+            activeTab === "diary"
+              ? "bg-[#EDE0F0] border-2 border-purple-500 text-[#6E488A] shadow-sm"
+              : "hover:bg-[#EDE0F0]/50 border border-transparent text-[#56346F]/80 hover:text-[#6E488A]"
+          }`}
+        >
+          <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500" />
+          <span>📖 Diario</span>
+        </motion.button>
 
-          {/* Module 2: Jardín de Paz */}
-          <motion.button
-            whileHover={{ scale: 1.02, y: -2 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setActiveTab("garden")}
-            className={`flex flex-col items-start text-left p-4 rounded-2xl transition-all cursor-pointer border-2 min-h-[145px] justify-between gap-3 ${
-              activeTab === "garden"
-                ? "bg-gradient-to-br from-[#EDE0F0] to-[#36C4D8]/5 border-[#36C4D8] shadow-[0_12px_24px_rgba(54,196,216,0.12)]"
-                : "bg-white hover:bg-[#FAF7F9] border-[#6E488A]/10 hover:border-[#6E488A]/40 text-[#56346F]/85 shadow-sm"
-            }`}
-          >
-            <div className="flex items-center justify-between w-full">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                activeTab === "garden" ? "bg-[#36C4D8]/20" : "bg-[#EDE0F0]/50"
-              }`}>
-                <Smile className="w-5 h-5 text-[#36C4D8]" />
-              </div>
-              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                activeTab === "garden" ? "bg-[#36C4D8]/20 text-[#2DB3C7]" : "bg-slate-100 text-slate-500"
-              }`}>
-                {activeTab === "garden" ? "• SELECCIONADO" : "Frecuencias 432Hz"}
-              </span>
-            </div>
-            <div>
-              <h4 className={`text-base font-black tracking-tight ${
-                activeTab === "garden" ? "text-[#36C4D8]" : "text-[#56346F]"
-              }`}>
-                🌿 Jardín de Paz
-              </h4>
-              <p className="text-[11px] text-[#56346F]/80 mt-1 leading-snug">
-                Sintonizador de ondas de calma profunda y paisajes binaurales.
-              </p>
-            </div>
-          </motion.button>
+        <motion.button
+          whileHover={{ scale: 1.05, y: -2 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setActiveTab("share")}
+          className={`flex items-center gap-2 sm:gap-3 px-3 py-2.5 sm:px-5 sm:py-3.5 rounded-xl text-xs sm:text-sm font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+            activeTab === "share"
+              ? "bg-[#EDE0F0]/70 border-2 border-[#36C4D8] text-[#36C4D8] shadow-sm"
+              : "hover:bg-[#EDE0F0]/50 border border-transparent text-[#56346F]/80 hover:text-[#6E488A]"
+          }`}
+        >
+          <Share2 className="w-4 h-4 sm:w-5 sm:h-5 text-[#36C4D8]" />
+          <span>🏆 Compartir</span>
+        </motion.button>
 
-          {/* Module 3: Retos Activos */}
-          <motion.button
-            whileHover={{ scale: 1.02, y: -2 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setActiveTab("challenges")}
-            className={`flex flex-col items-start text-left p-4 rounded-2xl transition-all cursor-pointer border-2 min-h-[145px] justify-between gap-3 ${
-              activeTab === "challenges"
-                ? "bg-gradient-to-br from-[#EDE0F0] to-[#E36DB4]/5 border-[#E36DB4] shadow-[0_12px_24px_rgba(227,109,180,0.12)]"
-                : "bg-white hover:bg-[#FAF7F9] border-[#6E488A]/10 hover:border-[#6E488A]/40 text-[#56346F]/85 shadow-sm"
-            }`}
-          >
-            <div className="flex items-center justify-between w-full">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                activeTab === "challenges" ? "bg-[#E36DB4]/15" : "bg-[#EDE0F0]/50"
-              }`}>
-                <Award className="w-5 h-5 text-[#E36DB4]" />
-              </div>
-              <div className="flex items-center gap-1.5">
-                {challenges.filter(c => !c.completed).length > 0 && (
-                  <span className="px-2 py-0.5 rounded bg-[#E36DB4] text-white text-[10px] font-mono font-black animate-pulse">
-                    {challenges.filter(c => !c.completed).length} RETOS
-                  </span>
-                )}
-                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                  activeTab === "challenges" ? "bg-[#E36DB4]/20 text-[#E36DB4]" : "bg-slate-100 text-slate-500"
-                }`}>
-                  {activeTab === "challenges" ? "• SELECCIONADO" : "Plasticidad"}
-                </span>
-              </div>
-            </div>
-            <div>
-              <h4 className={`text-base font-black tracking-tight ${
-                activeTab === "challenges" ? "text-[#E36DB4]" : "text-[#56346F]"
-              }`}>
-                🎯 Retos Activos™
-              </h4>
-              <p className="text-[11px] text-[#56346F]/80 mt-1 leading-snug">
-                Ejercicios diarios de fortalecimiento de tus vías neuronales.
-              </p>
-            </div>
-          </motion.button>
-
-          {/* Module 4: Mi Evolución */}
-          <motion.button
-            whileHover={{ scale: 1.02, y: -2 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setActiveTab("evolution")}
-            className={`flex flex-col items-start text-left p-4 rounded-2xl transition-all cursor-pointer border-2 min-h-[145px] justify-between gap-3 ${
-              activeTab === "evolution"
-                ? "bg-gradient-to-br from-[#EDE0F0] to-[#E36DB4]/5 border-[#6E488A] shadow-[0_12px_24px_rgba(110,72,138,0.12)]"
-                : "bg-white hover:bg-[#FAF7F9] border-[#6E488A]/10 hover:border-[#6E488A]/40 text-[#56346F]/85 shadow-sm"
-            }`}
-          >
-            <div className="flex items-center justify-between w-full">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                activeTab === "evolution" ? "bg-[#36C4D8]/15" : "bg-[#EDE0F0]/50"
-              }`}>
-                <Activity className="w-5 h-5 text-[#36C4D8]" />
-              </div>
-              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                activeTab === "evolution" ? "bg-[#6E488A]/20 text-[#6E488A]" : "bg-slate-100 text-slate-500"
-              }`}>
-                {activeTab === "evolution" ? "• SELECCIONADO" : "Métricas"}
-              </span>
-            </div>
-            <div>
-              <h4 className={`text-base font-black tracking-tight ${
-                activeTab === "evolution" ? "text-[#6E488A]" : "text-[#56346F]"
-              }`}>
-                📈 Mi Evolución™
-              </h4>
-              <p className="text-[11px] text-[#56346F]/80 mt-1 leading-snug">
-                Gráficas acumuladas de tu reactividad, pulso y balances.
-              </p>
-            </div>
-          </motion.button>
-
-          {/* Module 5: Diario */}
-          <motion.button
-            whileHover={{ scale: 1.02, y: -2 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setActiveTab("diary")}
-            className={`flex flex-col items-start text-left p-4 rounded-2xl transition-all cursor-pointer border-2 min-h-[145px] justify-between gap-3 ${
-              activeTab === "diary"
-                ? "bg-gradient-to-br from-[#EDE0F0] to-purple-100/10 border-purple-500 shadow-[0_12px_24px_rgba(168,85,247,0.12)]"
-                : "bg-white hover:bg-[#FAF7F9] border-[#6E488A]/10 hover:border-[#6E488A]/40 text-[#56346F]/85 shadow-sm"
-            }`}
-          >
-            <div className="flex items-center justify-between w-full">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                activeTab === "diary" ? "bg-purple-100" : "bg-[#EDE0F0]/50"
-              }`}>
-                <BookOpen className="w-5 h-5 text-purple-500" />
-              </div>
-              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                activeTab === "diary" ? "bg-purple-200 text-purple-700" : "bg-slate-100 text-slate-500"
-              }`}>
-                {activeTab === "diary" ? "• SELECCIONADO" : "Bitácora"}
-              </span>
-            </div>
-            <div>
-              <h4 className={`text-base font-black tracking-tight ${
-                activeTab === "diary" ? "text-purple-600" : "text-[#56346F]"
-              }`}>
-                📖 Diario
-              </h4>
-              <p className="text-[11px] text-[#56346F]/80 mt-1 leading-snug">
-                Escribe, organiza y resguarda tus introspecciones íntimas.
-              </p>
-            </div>
-          </motion.button>
-
-          {/* Module 6: Compartir */}
-          <motion.button
-            whileHover={{ scale: 1.02, y: -2 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setActiveTab("share")}
-            className={`flex flex-col items-start text-left p-4 rounded-2xl transition-all cursor-pointer border-2 min-h-[145px] justify-between gap-3 ${
-              activeTab === "share"
-                ? "bg-gradient-to-br from-[#EDE0F0] to-[#36C4D8]/5 border-[#36C4D8] shadow-[0_12px_24px_rgba(54,196,216,0.12)]"
-                : "bg-white hover:bg-[#FAF7F9] border-[#6E488A]/10 hover:border-[#6E488A]/40 text-[#56346F]/85 shadow-sm"
-            }`}
-          >
-            <div className="flex items-center justify-between w-full">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                activeTab === "share" ? "bg-[#36C4D8]/15" : "bg-[#EDE0F0]/50"
-              }`}>
-                <Share2 className="w-5 h-5 text-[#36C4D8]" />
-              </div>
-              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                activeTab === "share" ? "bg-[#36C4D8]/20 text-[#2DB3C7]" : "bg-[#EDE0F0] text-[#6E488A]"
-              }`}>
-                {activeTab === "share" ? "• SELECCIONADO" : "+50 XP"}
-              </span>
-            </div>
-            <div>
-              <h4 className={`text-base font-black tracking-tight ${
-                activeTab === "share" ? "text-[#36C4D8]" : "text-[#56346F]"
-              }`}>
-                🏆 Compartir
-              </h4>
-              <p className="text-[11px] text-[#56346F]/80 mt-1 leading-snug">
-                Suma puntos de regulación expandiendo la conciencia mental.
-              </p>
-            </div>
-          </motion.button>
-
-          {/* Module 7: Mis Logros */}
-          <motion.button
-            whileHover={{ scale: 1.02, y: -2 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setActiveTab("milestones")}
-            className={`flex flex-col items-start text-left p-4 rounded-2xl transition-all cursor-pointer border-2 min-h-[145px] justify-between gap-3 ${
-              activeTab === "milestones"
-                ? "bg-gradient-to-br from-[#EDE0F0] to-amber-50/10 border-amber-500 shadow-[0_12px_24px_rgba(245,158,11,0.12)]"
-                : "bg-white hover:bg-[#FAF7F9] border-[#6E488A]/10 hover:border-[#6E488A]/40 text-[#56346F]/85 shadow-sm"
-            }`}
-            id="tab-milestones-btn"
-          >
-            <div className="flex items-center justify-between w-full">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                activeTab === "milestones" ? "bg-amber-100" : "bg-[#EDE0F0]/50"
-              }`}>
-                <Trophy className="w-5 h-5 text-amber-500" />
-              </div>
-              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                activeTab === "milestones" ? "bg-amber-200 text-amber-700" : "bg-[#EDE0F0] text-amber-600"
-              }`}>
-                {activeTab === "milestones" ? "• SELECCIONADO" : "Logros"}
-              </span>
-            </div>
-            <div>
-              <h4 className={`text-base font-black tracking-tight ${
-                activeTab === "milestones" ? "text-amber-600" : "text-[#56346F]"
-              }`}>
-                🏅 Mis Logros
-              </h4>
-              <p className="text-[11px] text-[#56346F]/80 mt-1 leading-snug">
-                Inspecciona tus trofeos y diplomas clínicos desbloqueados.
-              </p>
-            </div>
-          </motion.button>
-        </div>
-      </div>
-    </motion.div>
-  ) : (
-    <motion.div
-      key={`section_${activeTab}`}
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -20 }}
-      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-      className="space-y-6 text-left"
-    >
-      {/* Dedicated Navigation Header with Back button and Breadcrumbs */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-[#6E488A]/12 mb-6">
-        <div className="flex flex-wrap items-center gap-3">
-          <motion.button
-            onClick={() => setActiveTab(null)}
-            animate={{
-              boxShadow: [
-                "0 0 0 0px rgba(110, 72, 138, 0.4)",
-                "0 0 0 6px rgba(110, 72, 138, 0)",
-                "0 0 0 0px rgba(110, 72, 138, 0.4)"
-              ]
-            }}
-            transition={{
-              repeat: Infinity,
-              duration: 2,
-              ease: "easeInOut"
-            }}
-            whileHover={{ scale: 1.04 }}
-            whileTap={{ scale: 0.96 }}
-            className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-r from-[#6E488A] to-[#56346F] text-white font-black text-sm shadow-md transition-all cursor-pointer border-none outline-none"
-          >
-            <motion.div
-              animate={{ x: [0, -3, 0] }}
-              transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-            >
-              <ArrowLeft className="w-5 h-5 text-white stroke-[3px]" />
-            </motion.div>
-            <span>Volver al Panel</span>
-          </motion.button>
-          <div className="flex items-center text-xs text-slate-400 font-medium">
-            <span>M.A.P.A.™ Premium</span>
-            <span className="mx-1.5">/</span>
-            <span className="text-[#6E488A] font-extrabold uppercase tracking-wider">
-              {activeTab === "coach" && "Mentora Clara"}
-              {activeTab === "garden" && "Jardín de Paz"}
-              {activeTab === "challenges" && "Retos Activos"}
-              {activeTab === "evolution" && "Mi Evolución"}
-              {activeTab === "diary" && "Diario"}
-              {activeTab === "share" && "Compartir"}
-              {activeTab === "milestones" && "Mis Logros"}
-            </span>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] uppercase font-mono font-bold bg-[#EDE0F0] text-[#6E488A] px-2.5 py-1 rounded-full border border-[#6E488A]/15 shadow-sm">
-            {activeTab === "coach" && "Soporte Emocional IA"}
-            {activeTab === "garden" && "Frecuencias 432Hz"}
-            {activeTab === "challenges" && "Fortalecimiento Neural"}
-            {activeTab === "evolution" && "Métricas Clínicas"}
-            {activeTab === "diary" && "Bitácora Íntima"}
-            {activeTab === "share" && "Expansión Neural"}
-            {activeTab === "milestones" && "Mis Trofeos"}
-          </span>
-        </div>
+        <motion.button
+          whileHover={{ scale: 1.05, y: -2 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setActiveTab("milestones")}
+          className={`flex items-center gap-2 sm:gap-3 px-3 py-2.5 sm:px-5 sm:py-3.5 rounded-xl text-xs sm:text-sm font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+            activeTab === "milestones"
+              ? "bg-[#EDE0F0]/75 border-2 border-amber-500 text-amber-600 shadow-sm"
+              : "hover:bg-[#EDE0F0]/50 border border-transparent text-[#56346F]/80 hover:text-[#6E488A]"
+          }`}
+          id="tab-milestones-btn"
+        >
+          <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500 animate-pulse" />
+          <span>🏅 Mis Logros</span>
+        </motion.button>
       </div>
 
       {/* Main Tab Contents */}
@@ -2237,39 +1358,6 @@ export const PremiumDashboard: React.FC<PremiumDashboardProps> = ({
           {activeTab === "evolution" && (
             <div className="space-y-6">
               
-              {/* ACCIONES DE EXPORTACIÓN Y COMPARTICIÓN COMPILADAS */}
-              <div className="bg-gradient-to-r from-[#EDE0F0] to-[#E36DB4]/10 rounded-2xl p-5 border border-[#6E488A]/20 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4 text-left">
-                <div className="space-y-1.5 flex-1">
-                  <h4 className="font-display font-black text-sm text-[#6E488A] uppercase tracking-wider flex items-center gap-2">
-                    🌟 COMPARTIR MI EVOLUCIÓN DE 7 DÍAS
-                  </h4>
-                  <p className="text-[#56346F]/90 text-xs leading-relaxed font-semibold">
-                    Descarga tu informe clínico evolutivo en formato PDF o compártelo instantáneamente con tus seres queridos en WhatsApp para inspirarles a iniciar su propio proceso gratis.
-                  </p>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto shrink-0 justify-end">
-                  {/* PDF Download Button */}
-                  <button
-                    onClick={exportEvolutionPDF}
-                    className="px-4 py-2.5 rounded-xl text-xs font-black bg-[#6E488A] hover:bg-[#56346F] text-white shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer border-none font-sans uppercase tracking-wider"
-                  >
-                    <Download className="w-4 h-4 text-[#36C4D8]" />
-                    <span>Descargar PDF 📄</span>
-                  </button>
-
-                  {/* WhatsApp Share Button */}
-                  <button
-                    onClick={shareEvolutionWhatsApp}
-                    className="px-4 py-2.5 rounded-xl text-xs font-black bg-[#25D366] hover:bg-[#20ba5a] text-white shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer border-none font-sans uppercase tracking-wider animate-whatsapp-pulse"
-                  >
-                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.457L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.37 9.864-9.799.002-2.63-1.023-5.101-2.885-6.967C16.58 1.973 14.107.95 11.49.95c-5.447 0-9.873 4.373-9.877 9.803-.001 1.764.485 3.487 1.411 4.951L1.936 21.05l5.586-1.46c-.27.16-.54.32-.875.564zM17.47 15.35c-.32-.16-1.89-.93-2.185-1.043-.294-.11-.51-.16-.72.16-.21.32-.8.995-.98 1.19-.18.195-.36.21-.68.05-1.72-.85-3.013-1.63-4.085-3.475-.29-.495.29-.46.83-1.54.09-.18.04-.34-.02-.45-.06-.11-.51-1.22-.7-1.68-.18-.44-.37-.38-.51-.39-.13-.01-.29-.01-.45-.01-.16 0-.42.06-.64.29-.22.23-.85.82-.85 2.01s.87 2.33.99 2.49c.12.16 1.7 2.59 4.11 3.63.57.25 1.02.4 1.37.51.58.18 1.1.16 1.51.1.46-.07 1.89-.77 2.15-1.48.27-.71.27-1.32.19-1.44-.08-.12-.3-.19-.62-.35z"/>
-                    </svg>
-                    <span>Compartir WhatsApp 📱</span>
-                  </button>
-                </div>
-              </div>
-              
               {/* RESUMEN DE BIENESTAR: ÚLTIMOS 3 DÍAS */}
               <div id="resumen_bienestar_section" className="bg-gradient-to-br from-[#EDE0F0]/40 via-[#EDE0F0]/10 to-white border-2 border-[#6E488A]/15 border-b-[6px] border-b-[#6E488A]/25 rounded-3xl p-5 sm:p-6 text-left space-y-4 shadow-md">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#6E488A]/10">
@@ -2508,17 +1596,14 @@ export const PremiumDashboard: React.FC<PremiumDashboardProps> = ({
                       </button>
 
                       {/* Social media direct icons helpers */}
-                      <div className="pt-1.5">
+                      <div className="flex gap-2 justify-center">
                         <a
                           href={`https://api.whatsapp.com/send?text=${encodeURIComponent(asset.text)}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="w-full py-2.5 bg-[#25D366] hover:bg-[#20ba5a] text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 cursor-pointer shadow-md hover:shadow-lg transition-all border-none font-sans uppercase tracking-wider animate-whatsapp-pulse"
+                          className="px-3 py-1 bg-[#36C4D8]/10 hover:bg-[#36C4D8]/20 border border-[#36C4D8]/25 text-[#36C4D8] rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer"
                         >
-                          <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.457L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.37 9.864-9.799.002-2.63-1.023-5.101-2.885-6.967C16.58 1.973 14.107.95 11.49.95c-5.447 0-9.873 4.373-9.877 9.803-.001 1.764.485 3.487 1.411 4.951L1.936 21.05l5.586-1.46c-.27.16-.54.32-.875.564zM17.47 15.35c-.32-.16-1.89-.93-2.185-1.043-.294-.11-.51-.16-.72.16-.21.32-.8.995-.98 1.19-.18.195-.36.21-.68.05-1.72-.85-3.013-1.63-4.085-3.475-.29-.495.29-.46.83-1.54.09-.18.04-.34-.02-.45-.06-.11-.51-1.22-.7-1.68-.18-.44-.37-.38-.51-.39-.13-.01-.29-.01-.45-.01-.16 0-.42.06-.64.29-.22.23-.85.82-.85 2.01s.87 2.33.99 2.49c.12.16 1.7 2.59 4.11 3.63.57.25 1.02.4 1.37.51.58.18 1.1.16 1.51.1.46-.07 1.89-.77 2.15-1.48.27-.71.27-1.32.19-1.44-.08-.12-.3-.19-.62-.35z"/>
-                          </svg>
-                          <span>Compartir en WhatsApp</span>
+                          Compartir WhatsApp 📱
                         </a>
                       </div>
                     </div>
@@ -2878,9 +1963,6 @@ export const PremiumDashboard: React.FC<PremiumDashboardProps> = ({
 
         </div>
       )}
-    </motion.div>
-  )}
-</AnimatePresence>
 
       {/* EMERGENCY MODE PANIC MODAL PORTAL (🚨 Botón de pánico interactivo inmersivo) */}
       <AnimatePresence>

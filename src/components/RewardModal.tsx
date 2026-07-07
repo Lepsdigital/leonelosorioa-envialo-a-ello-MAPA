@@ -163,97 +163,41 @@ export const RewardModal: React.FC<RewardModalProps> = ({
     return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
   };
 
-  // 1. Guardar en Panel (API Request con Resguardo Local Seguro)
+  // 1. Guardar en Panel (API Request)
   const handleSaveToPanel = async () => {
     setIsSaving(true);
-    
-    const token = localStorage.getItem("MAPA_ACCESS_TOKEN");
-    const activeEmail = localStorage.getItem("MAPA_CURRENT_USER_EMAIL");
-
-    // Función auxiliar para resguardar localmente el audio desbloqueado
-    const saveLocally = () => {
-      // 1. Actualizar estructura genérica
-      const localProgStr = localStorage.getItem("MAPA_7DAY_PROGRESS_V2");
-      if (localProgStr) {
-        try {
-          const localProg = JSON.parse(localProgStr);
-          const currentUnlocked = localProg.unlockedAudios || [];
-          if (!currentUnlocked.includes(type)) {
-            currentUnlocked.push(type);
-            localProg.unlockedAudios = currentUnlocked;
-            localStorage.setItem("MAPA_7DAY_PROGRESS_V2", JSON.stringify(localProg));
-          }
-        } catch (err) {
-          console.error("Local save error in gen:", err);
-        }
-      }
-
-      // 2. Actualizar estructura específica de correo
-      if (activeEmail) {
-        const userProgStr = localStorage.getItem(`MAPA_USER_PROGRESS_${activeEmail.toLowerCase().trim()}`);
-        if (userProgStr) {
-          try {
-            const userProg = JSON.parse(userProgStr);
-            const currentUnlocked = userProg.unlockedAudios || [];
-            if (!currentUnlocked.includes(type)) {
-              currentUnlocked.push(type);
-              userProg.unlockedAudios = currentUnlocked;
-              localStorage.setItem(`MAPA_USER_PROGRESS_${activeEmail.toLowerCase().trim()}`, JSON.stringify(userProg));
-            }
-          } catch (err) {
-            console.error("Local save error in user:", err);
-          }
-        }
-      }
-    };
-
-    // Si no está logueado, lo guardamos localmente con éxito
-    if (!token || !activeEmail) {
-      saveLocally();
-      setSaveSuccess(true);
-      alert("¡Audio guardado localmente en tu dispositivo con éxito! Para guardarlo en tu panel en la nube de forma permanente y poder acceder desde cualquier otro dispositivo, por favor inicia sesión en la plataforma.");
-      setIsSaving(false);
-      return;
-    }
-
     try {
       const res = await fetch("/api/save-unlocked-audio", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+          "Authorization": `Bearer ${localStorage.getItem("MAPA_ACCESS_TOKEN") || ""}`
         },
         body: JSON.stringify({ audioId: type })
       });
 
       if (res.ok) {
-        saveLocally();
         setSaveSuccess(true);
-        alert("¡Audio guardado con éxito en tu Panel de Fortificación Neural!");
-      } else {
-        // Parsear respuesta robustamente (evitar error de JSON en páginas HTML/texto de error)
-        let errorMsg = "No se pudo guardar el audio en la nube. Por favor inicia sesión nuevamente.";
-        try {
-          const text = await res.text();
-          const errData = JSON.parse(text);
-          if (errData && errData.error) {
-            errorMsg = errData.error;
-          }
-        } catch (parseErr) {
-          errorMsg = `Error del servidor (Código ${res.status}): No pudimos sincronizar con la nube.`;
+        // Update local memory progress structure too
+        const localProgStr = localStorage.getItem("MAPA_7DAY_PROGRESS_V2");
+        if (localProgStr) {
+          try {
+            const localProg = JSON.parse(localProgStr);
+            const currentUnlocked = localProg.unlockedAudios || [];
+            if (!currentUnlocked.includes(type)) {
+              currentUnlocked.push(type);
+              localProg.unlockedAudios = currentUnlocked;
+              localStorage.setItem("MAPA_7DAY_PROGRESS_V2", JSON.stringify(localProg));
+            }
+          } catch (err) {}
         }
-        
-        // Guardar de todas formas de forma local como plan de contingencia
-        saveLocally();
-        setSaveSuccess(true);
-        alert(`Nota: ${errorMsg}\n\nNo te preocupes: Hemos guardado tu audio de forma segura a nivel local en este dispositivo para que puedas escucharlo.`);
+      } else {
+        const errData = await res.json();
+        alert(errData.error || "No se pudo guardar el audio. Por favor inicia sesión nuevamente.");
       }
     } catch (err) {
       console.error("Save reward failed:", err);
-      // Guardar de todas formas de forma local como plan de contingencia
-      saveLocally();
-      setSaveSuccess(true);
-      alert("No pudimos conectar con el servidor en este momento.\n\nNo te preocupes: Tu audio ha sido guardado de forma segura de manera local en este navegador para que no pierdas tu recompensa.");
+      alert("Error al intentar conectar con el servidor para guardar el audio.");
     } finally {
       setIsSaving(false);
     }

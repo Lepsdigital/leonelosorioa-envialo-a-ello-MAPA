@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Compass, 
@@ -48,11 +47,11 @@ import { SoundTherapy } from "./components/SoundTherapy";
 import { AdminPanel } from "./components/AdminPanel";
 import { PushNotificationManager } from "./components/PushNotificationManager";
 import { TermsAndPrivacy } from "./components/TermsAndPrivacy";
+import { AppDownloadPrompt } from "./components/AppDownloadPrompt";
 import { PremiumDashboard } from "./components/PremiumDashboard";
-import { PWAUpdateBanner } from "./components/PWAUpdateBanner";
+import { PWAInstallBanner } from "./components/PWAInstallBanner";
 import { RewardModal } from "./components/RewardModal";
 import { MilestoneModal } from "./components/MilestoneModal";
-import { PWAInstallModal } from "./components/PWAInstallModal";
 import { useWhatsAppShare, FUNNEL_URL } from "./utils/useWhatsAppShare";
 import { playClickCue, playAlertCue, playSuccessCue } from "./utils/audioCues";
 import {
@@ -190,63 +189,8 @@ const MINI_EXERCISES: MiniExercise[] = [
 export default function App() {
   const { getShareText, shareToWhatsApp, shareWithFallback } = useWhatsAppShare();
 
-  const navigate = useNavigate();
-  const location = useLocation();
-
   // Navigation Phases: "LANDING" | "SCAN_TEST" | "SCAN_RESULTS" | "LOGIN" | "DASHBOARD" | "WIZARD" | "LOADING" | "RESULTS" | "ADMIN"
   const [phase, setPhase] = useState<"LANDING" | "SCAN_TEST" | "SCAN_RESULTS" | "LOGIN" | "DASHBOARD" | "WIZARD" | "LOADING" | "RESULTS" | "ADMIN">("LANDING");
-
-  // Synchronize URL path to state on mount & back/forward button clicks
-  useEffect(() => {
-    const pathToPhase: Record<string, typeof phase> = {
-      "/": "LANDING",
-      "/landing": "LANDING",
-      "/scan-test": "SCAN_TEST",
-      "/scan-results": "SCAN_RESULTS",
-      "/login": "LOGIN",
-      "/dashboard": "DASHBOARD",
-      "/wizard": "WIZARD",
-      "/loading": "LOADING",
-      "/results": "RESULTS",
-      "/admin": "ADMIN"
-    };
-    const currentPath = location.pathname;
-    let targetPhase: typeof phase | undefined;
-
-    if (currentPath.startsWith("/dashboard")) {
-      targetPhase = "DASHBOARD";
-    } else {
-      targetPhase = pathToPhase[currentPath];
-    }
-
-    if (targetPhase && targetPhase !== phase) {
-      setPhase(targetPhase);
-    }
-  }, [location.pathname]);
-
-  // Synchronize state changes back to URL
-  useEffect(() => {
-    const phaseToPath: Record<typeof phase, string> = {
-      LANDING: "/",
-      SCAN_TEST: "/scan-test",
-      SCAN_RESULTS: "/scan-results",
-      LOGIN: "/login",
-      DASHBOARD: "/dashboard",
-      WIZARD: "/wizard",
-      LOADING: "/loading",
-      RESULTS: "/results",
-      ADMIN: "/admin"
-    };
-    const targetPath = phaseToPath[phase];
-    
-    if (phase === "DASHBOARD" && location.pathname.startsWith("/dashboard")) {
-      return;
-    }
-
-    if (targetPath && location.pathname !== targetPath) {
-      navigate(targetPath);
-    }
-  }, [phase]);
   
   // Landing States
   const [selectedChecks, setSelectedChecks] = useState<Record<number, boolean>>({});
@@ -258,22 +202,10 @@ export default function App() {
     return localStorage.getItem("MAPA_CURRENT_USER_EMAIL") || "";
   });
 
-  // PWA Auto-Update States
-  const [swUpdateWaiting, setSwUpdateWaiting] = useState<ServiceWorker | null>(null);
-  const [showUpdateBanner, setShowUpdateBanner] = useState<boolean>(false);
-
-  const [rememberMe, setRememberMe] = useState<boolean>(() => {
-    return localStorage.getItem("MAPA_REMEMBER_ME") === "true";
-  });
-
-  const [loginEmail, setLoginEmail] = useState<string>(() => {
-    return localStorage.getItem("MAPA_REMEMBERED_EMAIL") || "";
-  });
+  const [loginEmail, setLoginEmail] = useState<string>("");
   const [loginNombre, setLoginNombre] = useState<string>("");
   const [loginWhatsapp, setLoginWhatsapp] = useState<string>("");
-  const [loginAccessCode, setLoginAccessCode] = useState<string>(() => {
-    return localStorage.getItem("MAPA_REMEMBERED_ACCESS_CODE") || "";
-  });
+  const [loginAccessCode, setLoginAccessCode] = useState<string>("");
   const [isRequestingCode, setIsRequestingCode] = useState<boolean>(false);
   const [loginTermsAccepted, setLoginTermsAccepted] = useState<boolean>(true);
 
@@ -333,218 +265,6 @@ export default function App() {
     }, 1000);
     return () => clearInterval(interval);
   }, []);
-
-  // Validación de Sesión Multidispositivo en tiempo real (PWA)
-  const [isValidatingSession, setIsValidatingSession] = useState<boolean>(false);
-
-  useEffect(() => {
-    const token = localStorage.getItem("MAPA_ACCESS_TOKEN");
-    const activeEmail = localStorage.getItem("MAPA_CURRENT_USER_EMAIL");
-    if (token && activeEmail) {
-      setIsValidatingSession(true);
-      fetch("/api/auth/me", {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      })
-      .then(async (res) => {
-        if (res.ok) {
-          const data = await res.json();
-          console.log("Sesión síncrona multidispositivo recuperada:", data);
-          if (data.userProgress) {
-            const prog = data.userProgress;
-            prog.completedDays = Array.isArray(prog.completedDays) ? prog.completedDays : [];
-            prog.unlockedAudios = Array.isArray(prog.unlockedAudios) ? prog.unlockedAudios : [];
-
-            setProgramProgress(prog);
-            localStorage.setItem(`MAPA_USER_PROGRESS_${activeEmail.toLowerCase().trim()}`, JSON.stringify(prog));
-            
-            setLeadInfo(prog.leadInfo || { nombre: "", email: activeEmail, whatsapp: "" });
-            setLeadCaptured(true);
-            setCurrentUserEmail(activeEmail);
-            
-            if (data.isAdmin) {
-              setPhase("ADMIN");
-            } else {
-              setPhase("DASHBOARD");
-            }
-          }
-        } else {
-          console.warn("Token expirado o inválido, limpiando sesión.");
-          localStorage.removeItem("MAPA_ACCESS_TOKEN");
-          localStorage.removeItem("MAPA_CURRENT_USER_EMAIL");
-          setCurrentUserEmail("");
-          setPhase("LOGIN");
-        }
-      })
-      .catch((err) => {
-        console.warn("Error de conexión durante validación de sesión. Usando caché local:", err);
-        const emailKey = activeEmail.toLowerCase().trim();
-        const existing = localStorage.getItem(`MAPA_USER_PROGRESS_${emailKey}`);
-        if (existing) {
-          try {
-            const prog = JSON.parse(existing);
-            prog.completedDays = Array.isArray(prog.completedDays) ? prog.completedDays : [];
-            prog.unlockedAudios = Array.isArray(prog.unlockedAudios) ? prog.unlockedAudios : [];
-            setProgramProgress(prog);
-            setLeadInfo(prog.leadInfo);
-            setLeadCaptured(true);
-            setPhase("DASHBOARD");
-          } catch (e) {
-            console.error("Error cargando sesión offline local:", e);
-          }
-        }
-      })
-      .finally(() => {
-        setIsValidatingSession(false);
-      });
-    }
-  }, []);
-
-  // Deep Linking check for Service Worker action clicks (e.g. "?action=do_action")
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("action") === "do_action") {
-      console.log("🎯 Deep link detected: automatic redirection to the active day questionnaire!");
-      
-      const checkAndLaunch = setInterval(() => {
-        const token = localStorage.getItem("MAPA_ACCESS_TOKEN");
-        const activeEmail = localStorage.getItem("MAPA_CURRENT_USER_EMAIL");
-        if (token && activeEmail && programProgress && programProgress.currentDay) {
-          clearInterval(checkAndLaunch);
-          
-          // Clear query params to prevent looping on reload
-          window.history.replaceState({}, document.title, window.location.pathname);
-          
-          // Trigger the daily quiz!
-          launchDailyQuiz();
-        }
-      }, 500);
-
-      // Timeout after 10 seconds
-      setTimeout(() => clearInterval(checkAndLaunch), 10000);
-    }
-  }, [programProgress]);
-
-  // Listen to incoming Service Worker messages for live foreground click handling
-  useEffect(() => {
-    const handleSWMessage = (event: MessageEvent) => {
-      if (event.data && event.data.type === "TRIGGER_ACTION") {
-        console.log("🎯 SW message received: triggering deep linked action!", event.data);
-        launchDailyQuiz();
-      }
-    };
-    navigator.serviceWorker?.addEventListener("message", handleSWMessage);
-    return () => {
-      navigator.serviceWorker?.removeEventListener("message", handleSWMessage);
-    };
-  }, [programProgress]);
-
-  // PWA Service Worker Update Detection & Checking Flow
-  useEffect(() => {
-    if (!("serviceWorker" in navigator)) return;
-
-    let swRegistration: ServiceWorkerRegistration | null = null;
-
-    const handleUpdate = (reg: ServiceWorkerRegistration) => {
-      // If there is already a waiting service worker (e.g. from previous load)
-      if (reg.waiting) {
-        console.log("[PWA] A waiting Service Worker was found on load.");
-        setSwUpdateWaiting(reg.waiting);
-        setShowUpdateBanner(true);
-        return;
-      }
-
-      // If a new update is found
-      reg.addEventListener("updatefound", () => {
-        const newWorker = reg.installing;
-        if (newWorker) {
-          console.log("[PWA] New installing Service Worker detected...");
-          newWorker.addEventListener("statechange", () => {
-            if (newWorker.state === "installed") {
-              if (navigator.serviceWorker.controller) {
-                console.log("[PWA] Service Worker update successfully installed and waiting!");
-                setSwUpdateWaiting(newWorker);
-                setShowUpdateBanner(true);
-              }
-            }
-          });
-        }
-      });
-    };
-
-    // Get active registration or wait for registration
-    navigator.serviceWorker.getRegistration().then((reg) => {
-      if (reg) {
-        swRegistration = reg;
-        handleUpdate(reg);
-      }
-    });
-
-    navigator.serviceWorker.ready.then((reg) => {
-      swRegistration = reg;
-      handleUpdate(reg);
-    });
-
-    // Check for updates periodically & when user focuses/enters the app
-    const checkForUpdates = () => {
-      if (swRegistration) {
-        console.log("[PWA] Manually triggering update check...");
-        swRegistration.update().catch((err) => {
-          console.warn("[PWA] Silent update check failed:", err);
-        });
-      }
-    };
-
-    // Listen to focus and focus changes (returning users / reopening tab)
-    window.addEventListener("focus", checkForUpdates);
-    
-    // Check every 60 seconds
-    const interval = setInterval(checkForUpdates, 60000);
-
-    // Watch for controller change to perform immediate page reload when skipWaiting is triggered
-    let refreshing = false;
-    const handleControllerChange = () => {
-      if (refreshing) return;
-      refreshing = true;
-      console.log("[PWA] Controller changed, performing full reload...");
-      window.location.reload();
-    };
-    navigator.serviceWorker.addEventListener("controllerchange", handleControllerChange);
-
-    return () => {
-      window.removeEventListener("focus", checkForUpdates);
-      clearInterval(interval);
-      navigator.serviceWorker.removeEventListener("controllerchange", handleControllerChange);
-    };
-  }, []);
-
-  // Sync PWA User Status in Cache Storage so that the Service Worker knows the timezone-accurate locked state
-  useEffect(() => {
-    if (typeof window !== "undefined" && "caches" in window) {
-      try {
-        const chrono = getChronologicalState();
-        caches.open("mapa-user-status").then((cache) => {
-          cache.put(
-            "/api/current-status",
-            new Response(
-              JSON.stringify({
-                isLocked: chrono.isLocked,
-                currentDay: programProgress.currentDay,
-                email: currentUserEmail
-              }),
-              {
-                headers: { "Content-Type": "application/json" }
-              }
-            )
-          ).catch((e) => console.warn("Error caching user status:", e));
-        });
-      } catch (err) {
-        console.warn("Could not cache user progress for service worker check:", err);
-      }
-    }
-  }, [programProgress, currentUserEmail]);
 
   // Precise chronological calculations for 24h consecutive lock logic (based on previous day completion)
   const getChronologicalState = () => {
@@ -643,7 +363,6 @@ export default function App() {
 
   // Modal selector for privacy and terms documents
   const [activeDocumentModal, setActiveDocumentModal] = useState<"PRIVACY" | "TERMS" | null>(null);
-  const [showPWAInstallModal, setShowPWAInstallModal] = useState<boolean>(false);
 
   // New Initial 7-Question Scan states
   const [scanMetrics, setScanMetrics] = useState<any>(null);
@@ -896,6 +615,23 @@ export default function App() {
     };
   }, []);
 
+  const handleConfirmAppDownloaded = () => {
+    setProgramProgress(prev => {
+      const updated = {
+        ...prev,
+        hasDownloadedApp: true
+      };
+      const userEmail = leadInfo.email || currentUserEmail;
+      if (userEmail) {
+        localStorage.setItem(
+          `MAPA_USER_PROGRESS_${userEmail.toLowerCase().trim()}`,
+          JSON.stringify(updated)
+        );
+      }
+      return updated;
+    });
+  };
+
   // Synchronize progress to cloud database server
   const syncProgressToCloud = async (currentProgress: any, userEmail: string) => {
     if (!userEmail) return;
@@ -998,25 +734,6 @@ export default function App() {
     }
   };
 
-  const handlePWAInstallSuccess = () => {
-    setProgramProgress(prev => {
-      const updated = {
-        ...prev,
-        hasDownloadedApp: true
-      };
-      const userEmail = leadInfo.email || currentUserEmail;
-      if (userEmail) {
-        localStorage.setItem(
-          `MAPA_USER_PROGRESS_${userEmail.toLowerCase().trim()}`,
-          JSON.stringify(updated)
-        );
-        syncProgressToCloud(updated, userEmail);
-      }
-      return updated;
-    });
-    setShowPWAInstallModal(false);
-  };
-
   const handleUserLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginEmail) {
@@ -1050,17 +767,6 @@ export default function App() {
       localStorage.setItem("MAPA_CURRENT_USER_EMAIL", emailKey);
       setCurrentUserEmail(emailKey);
 
-      // Persistir credenciales si la usuaria lo solicitó ("Recordar mis datos")
-      if (rememberMe) {
-        localStorage.setItem("MAPA_REMEMBERED_EMAIL", emailKey);
-        localStorage.setItem("MAPA_REMEMBERED_ACCESS_CODE", rawInputCode);
-        localStorage.setItem("MAPA_REMEMBER_ME", "true");
-      } else {
-        localStorage.removeItem("MAPA_REMEMBERED_EMAIL");
-        localStorage.removeItem("MAPA_REMEMBERED_ACCESS_CODE");
-        localStorage.setItem("MAPA_REMEMBER_ME", "false");
-      }
-
       // Hydrate progress from server
       const loadedProgress = data.userProgress;
       setProgramProgress(loadedProgress);
@@ -1078,11 +784,6 @@ export default function App() {
         setPhase("DASHBOARD");
         setDashboardNotice(`🎯 ¡Acceso concedido! Bienvenida a M.A.P.A.™ Mujer, ${loadedProgress.leadInfo.nombre || "Alumna"}.`);
         setTimeout(() => setDashboardNotice(null), 4000);
-        if (!loadedProgress.hasDownloadedApp) {
-          setTimeout(() => {
-            setShowPWAInstallModal(true);
-          }, 1500);
-        }
       }
     })
     .catch((err) => {
@@ -1100,11 +801,6 @@ export default function App() {
           setPhase("DASHBOARD");
           setDashboardNotice(`🎯 ¡Acceso offline concedido! Bienvenida de nuevo, ${loadedProgress.leadInfo.nombre}.`);
           setTimeout(() => setDashboardNotice(null), 3500);
-          if (!loadedProgress.hasDownloadedApp) {
-            setTimeout(() => {
-              setShowPWAInstallModal(true);
-            }, 1500);
-          }
           return;
         } catch (e) {
           console.error(e);
@@ -1116,7 +812,6 @@ export default function App() {
 
   const handleUserLogout = () => {
     localStorage.removeItem("MAPA_CURRENT_USER_EMAIL");
-    localStorage.removeItem("MAPA_ACCESS_TOKEN");
     setCurrentUserEmail("");
     
     // Reset to brand new progress locally
@@ -1133,14 +828,8 @@ export default function App() {
     setLeadInfo({ nombre: "", email: "", whatsapp: "" });
     setLeadCaptured(false);
     
-    // Clean up login input state depending on rememberMe setting
-    if (rememberMe) {
-      setLoginEmail(localStorage.getItem("MAPA_REMEMBERED_EMAIL") || "");
-      setLoginAccessCode(localStorage.getItem("MAPA_REMEMBERED_ACCESS_CODE") || "");
-    } else {
-      setLoginEmail("");
-      setLoginAccessCode("");
-    }
+    // Clean up login input state too
+    setLoginEmail("");
     setLoginNombre("");
     setLoginWhatsapp("");
     
@@ -1297,11 +986,6 @@ export default function App() {
         setPhase("DASHBOARD");
         setDashboardNotice(`🎯 ¡M.A.P.A.™ Mujer iniciado con éxito! Bienvenida al programa, querida ${loadedProgress.leadInfo.nombre || "Alumna"}.`);
         setTimeout(() => setDashboardNotice(null), 6000);
-        if (!loadedProgress.hasDownloadedApp) {
-          setTimeout(() => {
-            setShowPWAInstallModal(true);
-          }, 1500);
-        }
       }
       setIsRegistering(false);
     })
@@ -2339,123 +2023,6 @@ export default function App() {
       margin-bottom: 32px;
       border: 1px solid rgba(126, 249, 255, 0.1);
     }
-    .comparison-share-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      background: linear-gradient(135deg, #36C4D8 0%, #E36DB4 50%, #6E488A 100%);
-      color: #ffffff;
-      border: 2px solid #262222;
-      border-radius: 12px;
-      padding: 14px 28px;
-      font-size: 13px;
-      font-weight: 800;
-      cursor: pointer;
-      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-      box-shadow: 0 4px 15px rgba(54, 196, 216, 0.25);
-      margin-top: 12px;
-      width: 100%;
-      max-width: 340px;
-      text-transform: uppercase;
-      letter-spacing: 0.75px;
-    }
-    .comparison-share-btn:hover {
-      transform: translateY(-4px) scale(1.02);
-      box-shadow: 0 10px 25px rgba(227, 109, 180, 0.45);
-      background: linear-gradient(135deg, #43d5ea 0%, #f58bc8 50%, #8257a3 100%);
-    }
-    .comparison-share-btn:active {
-      transform: translateY(-1px) scale(0.99);
-      box-shadow: 0 4px 12px rgba(227, 109, 180, 0.3);
-    }
-    .comparison-footer-container {
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-      justify-content: space-between;
-      gap: 28px;
-      margin-top: 24px;
-      padding-top: 24px;
-      border-top: 1px dashed rgba(126, 249, 255, 0.15);
-    }
-    @media (max-width: 650px) {
-      .comparison-footer-container {
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-      }
-    }
-    .mini-radar-card {
-      background: rgba(3, 7, 18, 0.65);
-      border: 1px solid rgba(126, 249, 255, 0.2);
-      border-radius: 18px;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      width: 200px;
-      flex-shrink: 0;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-    }
-    .mini-radar-svg {
-      max-width: 100%;
-      height: auto;
-    }
-    .radar-legend {
-      display: flex;
-      gap: 12px;
-      margin-top: 10px;
-      font-size: 10px;
-      font-family: inherit;
-      color: #94a3b8;
-    }
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-    .legend-color {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      display: inline-block;
-    }
-    .legend-color.bg-rojo {
-      background-color: #ef4444;
-      box-shadow: 0 0 6px #ef4444;
-    }
-    .legend-color.bg-verde {
-      background-color: #10b981;
-      box-shadow: 0 0 6px #10b981;
-    }
-    .share-actions-wrap {
-      flex-grow: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      justify-content: center;
-    }
-    @media (max-width: 650px) {
-      .share-actions-wrap {
-        align-items: center;
-      }
-    }
-    .share-heading {
-      font-size: 16px;
-      font-weight: 700;
-      color: #ffffff;
-      margin-bottom: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .share-subheading {
-      font-size: 12.5px;
-      color: #94a3b8;
-      margin: 0 0 12px 0;
-      line-height: 1.4;
-    }
     .comparison-grid {
       display: grid;
       grid-template-cols: 1fr 1fr;
@@ -2610,7 +2177,7 @@ export default function App() {
         box-shadow: none;
         background-color: #ffffff;
       }
-      .print-btn, .whatsapp-btn, .web-btn, .cta-area, .comparison-share-btn {
+      .print-btn, .whatsapp-btn, .web-btn, .cta-area {
         display: none !important;
       }
       .day-card {
@@ -2660,24 +2227,6 @@ export default function App() {
       .comparison-card {
         background-color: #f8fafc;
         border: 1px solid #cbd5e1;
-      }
-      .comparison-share-btn, .share-heading, .share-subheading {
-        display: none !important;
-      }
-      .comparison-footer-container {
-        border-top: 1px solid #cbd5e1;
-        justify-content: center;
-        padding-top: 16px;
-        margin-top: 16px;
-      }
-      .mini-radar-card {
-        background-color: #ffffff !important;
-        border: 1px solid #cbd5e1 !important;
-        box-shadow: none !important;
-        width: 220px !important;
-      }
-      .mini-radar-card text {
-        fill: #475569 !important;
       }
     }
   </style>
@@ -2758,55 +2307,6 @@ export default function App() {
           </ul>
         </div>
       </div>
-      
-      <div class="comparison-footer-container">
-        <!-- SVG Radar Mini-Chart -->
-        <div class="mini-radar-card">
-          <svg width="150" height="150" viewBox="0 0 160 160" class="mini-radar-svg">
-            <!-- Pentagon Ring 1 (25%) -->
-            <polygon points="80,65 94.3,75.4 88.8,92.1 71.2,92.1 65.7,75.4" fill="none" stroke="rgba(148, 163, 184, 0.15)" stroke-width="1" />
-            <!-- Pentagon Ring 2 (50%) -->
-            <polygon points="80,50 108.5,70.7 97.6,104.3 62.4,104.3 51.5,70.7" fill="none" stroke="rgba(148, 163, 184, 0.15)" stroke-width="1" />
-            <!-- Pentagon Ring 3 (75%) -->
-            <polygon points="80,35 122.8,66.1 106.5,116.4 53.5,116.4 37.2,66.1" fill="none" stroke="rgba(148, 163, 184, 0.15)" stroke-width="1" />
-            <!-- Pentagon Ring 4 (100%) -->
-            <polygon points="80,20 137.1,61.5 115.3,128.5 44.7,128.5 22.9,61.5" fill="none" stroke="rgba(148, 163, 184, 0.25)" stroke-width="1" />
-            
-            <!-- Axis Lines -->
-            <line x1="80" y1="80" x2="80" y2="20" stroke="rgba(148, 163, 184, 0.2)" stroke-width="1" />
-            <line x1="80" y1="80" x2="137.1" y2="61.5" stroke="rgba(148, 163, 184, 0.2)" stroke-width="1" />
-            <line x1="80" y1="80" x2="115.3" y2="128.5" stroke="rgba(148, 163, 184, 0.2)" stroke-width="1" />
-            <line x1="80" y1="80" x2="44.7" y2="128.5" stroke="rgba(148, 163, 184, 0.2)" stroke-width="1" />
-            <line x1="80" y1="80" x2="22.9" y2="61.5" stroke="rgba(148, 163, 184, 0.2)" stroke-width="1" />
-            
-            <!-- Day 1 (Hiperalerta - Rojo) Polygon -->
-            <polygon points="80,27.2 128.5,64.2 111.7,123.7 51.8,118.8 37.2,66.1" fill="rgba(239, 68, 68, 0.18)" stroke="#ef4444" stroke-width="1.5" />
-            
-            <!-- Day 7 (Calma Vagal - Verde) Polygon -->
-            <polygon points="80,60.8 97.1,74.4 92.3,97.0 70.1,93.6 65.7,75.4" fill="rgba(16, 185, 129, 0.22)" stroke="#10b981" stroke-width="2" />
-            
-            <!-- Labels -->
-            <text x="80" y="14" text-anchor="middle" font-family="'Inter', sans-serif" font-size="7.5px" fill="#ef4444" font-weight="800">ALERTA</text>
-            <text x="141" y="58" text-anchor="start" font-family="'Inter', sans-serif" font-size="7.5px" fill="#94a3b8" font-weight="700">TENSIÓN</text>
-            <text x="119" y="136" text-anchor="start" font-family="'Inter', sans-serif" font-size="7.5px" fill="#94a3b8" font-weight="700">ESTÍMULOS</text>
-            <text x="41" y="136" text-anchor="end" font-family="'Inter', sans-serif" font-size="7.5px" fill="#94a3b8" font-weight="700">RUMIA</text>
-            <text x="19" y="58" text-anchor="end" font-family="'Inter', sans-serif" font-size="7.5px" fill="#94a3b8" font-weight="700">ESTRÉS</text>
-          </svg>
-          
-          <div class="radar-legend">
-            <span class="legend-item"><span class="legend-color bg-rojo"></span> basal</span>
-            <span class="legend-item"><span class="legend-color bg-verde"></span> actual</span>
-          </div>
-        </div>
-
-        <div class="share-actions-wrap">
-          <div class="share-heading">Estadísticas Clínicas Consolidadas</div>
-          <p class="share-subheading">El gráfico representa el encogimiento del patrón de hiperalerta nerviosa (rojo) hacia el núcleo de calma consciente y regulación (verde).</p>
-          <button class="comparison-share-btn" onclick="compartirResultados()">
-            Compartir mis resultados 🔗
-          </button>
-        </div>
-      </div>
     </div>
 
     <!-- DAY BY DAY DETAILED CLINICAL WORK -->
@@ -2867,30 +2367,6 @@ export default function App() {
       Generado por soporte de la Unidad Integradora Poder Mental IA™ y el motor Gemini API. Administrado por contacto@tupodermental.club
     </div>
   </div>
-
-  <script>
-    function compartirResultados() {
-      const shareData = {
-        title: "M.A.P.A.™ - Reporte de ${nombre.replace(/"/g, '\\"')}",
-        text: "Acabo de completar mi plan de acompañamiento e integración M.A.P.A.™ Mujer. Mi perfil emocional dominante es: ${profileName.replace(/"/g, '\\"')}. Descubre tu nivel de regulación y estrés aquí:",
-        url: "${FUNNEL_URL}"
-      };
-      if (navigator.share) {
-        navigator.share(shareData)
-          .then(() => console.log('Resultados compartidos con éxito'))
-          .catch((err) => console.log('Cancelado o error:', err));
-      } else {
-        const textToCopy = shareData.text + ' ' + shareData.url;
-        navigator.clipboard.writeText(textToCopy)
-          .then(() => {
-            alert('¡Texto del reporte y enlace de M.A.P.A.™ copiados al portapapeles con éxito! Listo para compartir en WhatsApp o tus Redes Sociales.');
-          })
-          .catch(() => {
-            alert('No se pudo copiar de forma automática. Enlace: ' + shareData.url);
-          });
-      }
-    }
-  </script>
 </body>
 </html>
     `;
@@ -2908,18 +2384,12 @@ export default function App() {
   };
 
   const handleRestart = () => {
-    const activeEmail = currentUserEmail || leadInfo.email;
-    const isCompletedProg = programProgress && Array.isArray(programProgress.completedDays) && programProgress.completedDays.length === 7;
-    if (isCompletedProg) {
-      alert("Has culminado con éxito el ecosistema M.A.P.A.™ Mujer. Tu historial de 7 días está custodiado y no puede ser reiniciado para garantizar tu seguimiento clínico. Te invitamos a continuar con M.A.P.A.™ Care.");
-      return;
-    }
-
     setUserResponses([]);
     setCurrentQuestionIndex(0);
     setIsEvaluationReady(false);
     setEvaluationResult(null);
     
+    const activeEmail = currentUserEmail || leadInfo.email;
     if (activeEmail) {
       const restartedProg = {
         activationDate: new Date().toISOString(),
@@ -2982,20 +2452,8 @@ export default function App() {
       {/* Decorative top ambient glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[400px] bg-gradient-to-b from-[#EDE0F0]/50 via-transparent to-transparent blur-3xl pointer-events-none z-0" />
 
-      {/* Interactive PWA Update Auto-Update Banner */}
-      <PWAUpdateBanner
-        isVisible={showUpdateBanner}
-        onApplyUpdate={() => {
-          if (swUpdateWaiting) {
-            swUpdateWaiting.postMessage({ type: "SKIP_WAITING" });
-          } else {
-            window.location.reload();
-          }
-        }}
-        onDismiss={() => {
-          setShowUpdateBanner(false);
-        }}
-      />
+      {/* Persistent PWA Install Banner */}
+      <PWAInstallBanner />
 
       {/* HEADER LOGO RAIL */}
       <header id="app_header" className="relative z-10 w-full border-b-2 border-[#6E488A]/15 bg-[#E86FA3] shadow-[0_4px_20px_rgba(232,111,163,0.15)] px-4 py-4 sm:px-8 sm:py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -3770,7 +3228,7 @@ export default function App() {
                     );
                   })()}
 
-                  {/* Cómo quieres que te llamemos - Solo para no-administradores */}
+                  {/* Nombre Completo - Solo para no-administradores */}
                   {(() => {
                     const emailKey = loginEmail.toLowerCase().trim();
                     const adminEmails = ["contacto@tupodermental.club", "tupodermentaloficial@gmail.com", "agencialeps@gmail.com"];
@@ -3779,22 +3237,22 @@ export default function App() {
                     return (
                       <div className="space-y-1">
                         <label className="block text-xs font-mono text-[#6E488A] uppercase tracking-widest font-bold">
-                          ¿Cómo quieres que te llamemos?
+                          Nombre Completo
                         </label>
                         <div className="relative">
                           <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6E488A]/60" />
                           <input 
                             type="text" 
                             required
-                            placeholder="Tu nombre o cómo te sientas más cómoda..."
+                            placeholder="Ej. Pedro Picapiedra"
                             value={loginNombre}
                             onChange={(e) => setLoginNombre(e.target.value)}
                             className="w-full bg-white border border-[#6E488A]/15 focus:border-[#36C4D8] placeholder:text-gray-400 rounded-xl p-3.5 pl-11 text-sm outline-none text-[#56346F] transition-all font-sans font-medium"
                           />
                         </div>
-                        <p className="text-[10px] text-[#56346F]/80 leading-relaxed font-sans font-medium mt-1 select-none">
-                          No necesitas darnos tus apellidos. Usaremos este nombre únicamente para personalizar tu dashboard y dirigirnos a ti con cariño durante tu proceso.
-                        </p>
+                        <span className="block text-[10px] text-[#56346F]/70 font-mono mt-0.5">
+                          Indispensable para generar tus informes y PDFs oficiales a tu nombre.
+                        </span>
                       </div>
                     );
                   })()}
@@ -3810,19 +3268,6 @@ export default function App() {
                   />
                   <label htmlFor="acceptTerms" className="text-xs text-[#56346F]/80 leading-normal font-sans cursor-pointer select-none font-medium">
                     Doy mi consentimiento para procesar mis datos de autoconocimiento y recibir herramientas terapéuticas complementarias gratuitas.
-                  </label>
-                </div>
-
-                <div className="flex items-center space-x-3 pt-1 pb-1">
-                  <input 
-                    type="checkbox" 
-                    id="rememberMe"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="accent-[#36C4D8] rounded"
-                  />
-                  <label htmlFor="rememberMe" className="text-xs text-[#56346F]/80 leading-normal font-sans cursor-pointer select-none font-medium">
-                    Recordar mis datos de acceso en este dispositivo
                   </label>
                 </div>
 
@@ -3925,47 +3370,25 @@ export default function App() {
                 </motion.div>
               )}
 
+              {/* Daily Web App Download prompt for registered users */}
+              {currentUserEmail && (
+                <AppDownloadPrompt
+                  userEmail={currentUserEmail}
+                  hasDownloadedApp={!!programProgress.hasDownloadedApp}
+                  onConfirmDownloaded={handleConfirmAppDownloaded}
+                />
+              )}
+
               {/* COMPANION NOTIFICATIONS SHIELDS */}
               <div id="emotional_regulation_labs">
-                <PushNotificationManager 
-                  userEmail={currentUserEmail} 
-                  isLocked={getChronologicalState().isLocked}
-                  onActionTriggered={launchDailyQuiz} 
-                />
+                <PushNotificationManager userEmail={currentUserEmail} />
               </div>
 
               {/* The 7-Day Program Timeline Cards Grid */}
               <div id="emotional_timeline_section" className="space-y-6">
-                {/* Visual Highlight block for Core Architecture of the application */}
-                <div className="bg-gradient-to-br from-[#EDE0F0] via-white to-[#36C4D8]/5 border-2 border-[#6E488A]/30 rounded-3xl p-6 text-left relative overflow-hidden shadow-md">
-                  <div className="absolute right-0 top-0 w-36 h-36 bg-[#E36DB4]/8 rounded-full blur-2xl pointer-events-none" />
-                  <div className="absolute left-1/3 bottom-0 w-24 h-24 bg-[#36C4D8]/8 rounded-full blur-xl pointer-events-none" />
-                  <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
-                    <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 rounded-2xl bg-[#6E488A] flex items-center justify-center text-white shrink-0 shadow-[0_4px_12px_rgba(110,72,138,0.25)]">
-                        <Compass className="w-6 h-6 animate-spin text-white" style={{ animationDuration: '10s' }} />
-                      </div>
-                      <div className="space-y-1">
-                        <span className="text-[10px] font-black text-[#E36DB4] uppercase tracking-widest block font-mono">
-                          🏆 ESQUEMA FUNDAMENTAL DEL PROGRAMA
-                        </span>
-                        <h4 className="font-display font-black text-lg sm:text-xl text-[#6E488A] tracking-tight">
-                          TU RUTA DE RECONEXIÓN CRONOLÓGICA DE 7 DÍAS
-                        </h4>
-                        <p className="text-xs text-black/80 leading-relaxed font-sans font-medium max-w-2xl">
-                          Este esquema de 7 días consecutivos es la estructura principal de M.A.P.A.™ Mujer. Tu progreso y la generación de tu reporte profesional dependen por completo de realizar secuencialmente cada uno de estos 7 módulos. ¡Sigue el proceso con constancia diaria para reprogramar tu sistema autónomo!
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-xs font-mono bg-[#EDE0F0] text-[#6E488A] border-2 border-[#6E488A] px-4 py-2 rounded-full font-black text-center whitespace-nowrap shadow-xs uppercase tracking-wider shrink-0 self-start md:self-center">
-                      ⚡ ARQUITECTURA CORE
-                    </span>
-                  </div>
-                </div>
-
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-[#6E488A]/12 pb-4">
                   <div>
-                    <h3 className="font-display font-black text-2xl text-[#6E488A] tracking-tight flex items-center gap-2">
+                    <h3 className="font-display font-semibold text-2xl text-[#6E488A] tracking-tight flex items-center gap-2">
                       <Sparkles className="w-5 h-5 text-[#E36DB4]" />
                       Cronograma del Viaje Emocional
                     </h3>
@@ -3982,7 +3405,6 @@ export default function App() {
                     const isActive = programProgress.currentDay === dayNum;
                     const { maxAllowedDay, hours, minutes, seconds } = getChronologicalState();
                     const isChronologicallyLocked = dayNum > maxAllowedDay;
-                    const isTodayEnabledForTest = isActive && !isCompleted && !isChronologicallyLocked;
 
                     const dayMeta = [
                       { 
@@ -4032,101 +3454,79 @@ export default function App() {
                         title: "Día 7", 
                         sub: "Integración Sostenida y Cierre", 
                         desc: "Consolida tus 49 marcadores biológicos y elabora pautas definitivas de calma.",
-                        tool: "Ancla definitivo de tu mapa diario (5 min)" 
+                        tool: "Anclaje definitivo de tu mapa diario (5 min)" 
                       }
                     ][dayNum - 1];
 
                     return (
-                      <div
+                      <button
                         key={dayNum}
                         onClick={() => setSelectedDayPreview(dayNum)}
-                        className={`p-6 rounded-3xl text-left border-2 transition-all relative flex flex-col justify-between min-h-[260px] cursor-pointer outline-none w-full hover:scale-[1.02] active:scale-[0.99] group ${
+                        className={`p-6 rounded-3xl text-left border-2 transition-all relative flex flex-col justify-between min-h-[220px] cursor-pointer outline-none w-full hover:scale-[1.02] active:scale-[0.98] ${
                           isActive
                             ? isChronologicallyLocked
-                              ? "bg-[#FFFBEB] border-amber-300 border-b-[6px] border-b-amber-400 text-black shadow-[0_10px_25px_rgba(245,158,11,0.08)] ring-1 ring-amber-300"
-                              : "bg-gradient-to-br from-white to-[#36C4D8]/5 border-[#36C4D8] border-b-[6px] border-b-[#27A1B2] shadow-[0_15px_30px_rgba(54,196,216,0.18)] ring-2 ring-[#36C4D8] text-black"
+                              ? "bg-[#FFFBEB] border-amber-300 border-b-4 border-b-amber-400 text-black shadow-[0_10px_25px_rgba(245,158,11,0.08)] ring-1 ring-amber-300"
+                              : "bg-white border-[#36C4D8] border-b-4 border-b-[#27A1B2] shadow-[0_15px_30px_rgba(54,196,216,0.15)] ring-1 ring-[#36C4D8] text-black"
                             : isCompleted
-                            ? "bg-white border-[#6E488A]/12 border-b-[6px] border-b-emerald-400/80 text-black shadow-[0_8px_20px_rgba(110,72,138,0.04)]"
-                            : "bg-[#FDF9FE] border-[#6E488A]/35 border-b-[6px] border-b-[#EDE0F0] text-black shadow-[0_4px_12px_rgba(110,72,138,0.02)] hover:border-[#6E488A]/60"
+                            ? "bg-white border-[#6E488A]/12 border-b-4 border-b-emerald-400/80 text-black shadow-[0_8px_20px_rgba(110,72,138,0.04)]"
+                            : "bg-[#FDF9FE] border-[#6E488A]/35 border-b-4 border-b-[#EDE0F0] text-black shadow-[0_4px_12px_rgba(110,72,138,0.02)] hover:border-[#6E488A]/60"
                         }`}
                       >
-                        <div className="space-y-4 w-full animate-fadeIn">
+                        <div className="space-y-3 w-full animate-fadeIn">
                           <div className="flex items-center justify-between w-full">
                             <span className="text-3xl">{dayMeta.icon}</span>
                             <div>
                               {isCompleted ? (
-                                <span className="text-[11px] font-mono bg-emerald-100 text-emerald-800 py-1 px-3 rounded-full inline-flex items-center gap-1 font-extrabold border border-emerald-200">
-                                  <span>Completo ✓</span>
+                                <span className="text-[10px] font-mono bg-emerald-100 text-emerald-800 py-1 px-2.5 rounded-full inline-flex items-center gap-1 font-bold">
+                                  <span>Completo</span>
                                 </span>
                               ) : isActive ? (
                                 isChronologicallyLocked ? (
-                                  <span className="text-[11px] font-mono bg-amber-100 text-amber-800 py-1 px-3 rounded-full inline-flex items-center gap-1 font-extrabold border border-amber-200 animate-pulse">
-                                    <span>Espera Consecutivo 🕒</span>
+                                  <span className="text-[10px] font-mono bg-amber-100 text-amber-800 py-1 px-2.5 rounded-full inline-flex items-center gap-1 font-bold">
+                                    <span>Bloqueado 🔒</span>
                                   </span>
                                 ) : (
-                                  <span className="text-[11px] font-mono bg-[#36C4D8]/15 text-[#27A1B2] py-1 px-3 rounded-full inline-flex items-center gap-1 animate-pulse font-extrabold border-2 border-[#36C4D8]">
-                                    <span>Habilitado Hoy 🔥</span>
+                                  <span className="text-[10px] font-mono bg-[#36C4D8]/10 text-[#36C4D8] py-1 px-2.5 rounded-full inline-flex items-center gap-1 animate-pulse font-bold border border-[#36C4D8]/30">
+                                    <span>Activo Hoy</span>
                                   </span>
                                 )
                               ) : (
-                                <span className="text-[11px] font-mono bg-slate-100 text-slate-500 border border-slate-200 py-1 px-3 rounded-full inline-flex items-center gap-1 font-bold">
-                                  <span>Pendiente 🔒</span>
+                                <span className="text-[10px] font-mono bg-amber-100/80 text-amber-900 border border-amber-200/60 py-1 px-2.5 rounded-full inline-flex items-center gap-1 font-bold shadow-xs">
+                                  <span>Bloqueado 🔒</span>
                                 </span>
                               )}
                             </div>
                           </div>
 
-                          <div className="space-y-1.5">
-                            {/* Day title - made much larger and more pronounced */}
-                            <span className={`font-mono text-base uppercase tracking-widest block font-black ${isCompleted ? 'text-emerald-600' : 'text-[#E36DB4]'}`}>
-                              {dayMeta.title.toUpperCase()}
-                            </span>
-                            <h4 className="font-display font-black text-xl sm:text-2xl text-[#6E488A] leading-tight block group-hover:text-[#E36DB4] transition-colors">
-                              {dayMeta.sub}
-                            </h4>
-                            <p className="text-sm text-[#56346F]/90 font-medium leading-relaxed block mt-1">
-                              {dayMeta.desc}
-                            </p>
+                          <div className="space-y-1">
+                            <span className={`font-mono text-xs uppercase tracking-wider block font-extrabold ${isCompleted ? 'text-emerald-600' : 'text-[#E36DB4]'}`}>{dayMeta.title}</span>
+                            <h4 className="font-display font-bold text-lg text-black leading-tight block">{dayMeta.sub}</h4>
+                            <p className="text-sm text-black font-medium leading-relaxed block mt-1.5">{dayMeta.desc}</p>
                           </div>
 
-                          {/* Chronological wait warning if active but locked */}
                           {isActive && isChronologicallyLocked && (
-                            <div className="mt-3 p-3 bg-amber-50 border border-amber-300 text-amber-900 rounded-2xl text-center space-y-1 shadow-xs animate-pulse">
-                              <span className="block text-[10px] font-mono font-black text-amber-800 uppercase tracking-widest">
-                                ⚠️ ESPERA EL RECALIBRADO DIARIO
+                            <div className="mt-3 p-3 bg-yellow-300 border border-yellow-500 text-black rounded-xl text-center space-y-1 shadow-xs animate-pulse">
+                              <span className="block text-[10px] font-mono font-black text-black uppercase tracking-widest">
+                                ⚠️ APERTURA EN CONSECUTIVO
                               </span>
-                              <div className="font-mono text-base font-black text-amber-900">
+                              <div className="font-mono text-base font-black text-black">
                                 {String(hours).padStart(2, '0')}h {String(minutes).padStart(2, '0')}m {String(seconds).padStart(2, '0')}s
                               </div>
+                              <span className="block text-[9px] font-bold text-black/80">
+                                Espera que se cumpla el tiempo para iniciar la prueba
+                              </span>
                             </div>
-                          )}
-
-                          {/* Direct Test Entrance Button if enabled for test */}
-                          {isTodayEnabledForTest && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                launchDailyQuiz();
-                              }}
-                              className="w-full mt-2 py-3 px-4 rounded-2xl font-display font-black text-sm text-white bg-gradient-to-r from-[#36C4D8] to-[#27A1B2] hover:from-[#2DB3C7] hover:to-[#1F8D9D] hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(54,196,216,0.3)] border-none outline-none cursor-pointer"
-                            >
-                              <Compass className="w-5 h-5 text-white animate-spin" style={{ animationDuration: '4s' }} />
-                              <span>INICIAR TEST DIARIO AHORA ➔</span>
-                            </button>
                           )}
                         </div>
 
                         <div className="mt-4 pt-3 border-t border-[#6E488A]/12 w-full flex items-center justify-between text-xs">
-                          <div className="text-xs text-black flex items-center gap-1 truncate max-w-[70%]">
-                            <span className="font-black text-[#6E488A]">Herramienta:</span>
-                            <span className="italic truncate font-bold text-black/80">{dayMeta.tool}</span>
+                          <div className="text-xs text-black flex items-center gap-1 truncate max-w-[80%]">
+                            <span className="font-black text-black">Herramienta:</span>
+                            <span className="italic truncate font-semibold text-black">{dayMeta.tool}</span>
                           </div>
-                          <span className="text-xs font-mono text-[#36C4D8] group-hover:underline shrink-0 font-black">
-                            {isTodayEnabledForTest ? "Ver detalles &rarr;" : "Ver guía &rarr;"}
-                          </span>
+                          <span className="text-xs font-mono text-black group-hover:underline shrink-0 font-extrabold">Ver guía &rarr;</span>
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -5396,19 +4796,16 @@ export default function App() {
                     <div className="space-y-4 pt-2">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-1">
-                          <label htmlFor="nombre" className="block text-xs font-mono text-[#56346F]/70 uppercase font-bold">¿Cómo quieres que te llamemos?</label>
+                          <label htmlFor="nombre" className="block text-xs font-mono text-[#56346F]/70 uppercase font-bold">Nombre Completo</label>
                           <input 
                             type="text" 
                             id="nombre"
                             required
-                            placeholder="Tu nombre o cómo te sientas más cómoda..."
+                            placeholder="Ej. Sofía Valenzuela"
                             value={leadInfo.nombre}
                             onChange={(e)=>setLeadInfo(prev=>({...prev, nombre: e.target.value}))}
                             className="w-full bg-[#FAF7F9] border border-[#6E488A]/20 focus:border-[#36C4D8] focus:bg-white placeholder:text-[#56346F]/40 rounded-xl p-3.5 text-sm outline-none text-[#56346F] transition-all font-sans"
                           />
-                          <p className="text-[10px] text-[#56346F]/80 leading-relaxed font-sans font-medium mt-1 select-none">
-                            No necesitas darnos tus apellidos. Usaremos este nombre únicamente para personalizar tu dashboard y dirigirnos a ti con cariño durante tu proceso.
-                          </p>
                         </div>
                         
                         <div className="space-y-1">
@@ -5688,13 +5085,6 @@ export default function App() {
         daysCount={milestoneModal.daysCount}
         onClose={() => setMilestoneModal({ ...milestoneModal, isOpen: false })}
         userName={leadInfo.nombre || "Usuaria"}
-      />
-
-      {/* PWA INSTALLATION MODAL FOR ENHANCED OFFLINE EXPERIENCE */}
-      <PWAInstallModal
-        isOpen={showPWAInstallModal}
-        onClose={() => setShowPWAInstallModal(false)}
-        onInstallSuccess={handlePWAInstallSuccess}
       />
 
       {/* FLOATING LEAD TOAST NOTIFICATION */}

@@ -47,35 +47,7 @@ const SIMULATED_ALERTS: Omit<PushNotice, "id">[] = [
   { title: "🏆 Caso de Éxito de la Comunidad", body: "Claudia V. redujo su rumia de alerta un 70% regulando sus hábitos de control rígidos.", category: "Guía Rápida de Emergencia" }
 ];
 
-const COOLDOWN_MS = 60000; // Cooldown of 60 seconds to avoid notification spam in foreground
-
-const isActionNotification = (title: string, body: string, category?: string) => {
-  const t = (title || "").toLowerCase();
-  const b = (body || "").toLowerCase();
-  const c = (category || "").toLowerCase();
-  
-  // Testimonials or community success stories are strictly informational
-  if (t.includes("testimonio") || b.includes("testimonio") || t.includes("caso de éxito") || b.includes("caso de éxito")) {
-    return false;
-  }
-  
-  const actionKeywords = [
-    "test", "prueba", "tarea", "reflexión", "reflexion", "pendiente", 
-    "completar", "avance", "día actual", "día de hoy", "dia de hoy", 
-    "evaluación", "evaluacion", "sintonizar", "completado"
-  ];
-  
-  const matchesKeyword = actionKeywords.some(keyword => t.includes(keyword) || b.includes(keyword));
-  const isActionCategory = c === "reminder" || c === "unlocked" || c === "guía rápida de emergencia" || c === "guia rapida de emergencia";
-  
-  return matchesKeyword || isActionCategory;
-};
-
-export const PushNotificationManager: React.FC<{ 
-  userEmail?: string;
-  isLocked?: boolean;
-  onActionTriggered?: () => void;
-}> = ({ userEmail, isLocked, onActionTriggered }) => {
+export const PushNotificationManager: React.FC<{ userEmail?: string }> = ({ userEmail }) => {
   const [activeNotice, setActiveNotice] = useState<PushNotice | null>(null);
   const [activeQuote, setActiveQuote] = useState(CONSEJOS_MOTIVACIONALES[0]);
   const [permissionStatus, setPermissionStatus] = useState<NotificationPermission>("default");
@@ -182,62 +154,51 @@ export const PushNotificationManager: React.FC<{
               receivedAt: new Date().toISOString()
             };
 
-            // Enforce foreground cooldown (60 seconds) to avoid spamming the user
-            const lastShown = localStorage.getItem("mapa_last_notification_shown_at");
-            const now = Date.now();
-            const isCooldownActive = lastShown && (now - parseInt(lastShown, 10) < COOLDOWN_MS);
+            // Set active notice for in-app floating toast
+            setActiveNotice(incomingNotice);
 
-            if (isCooldownActive) {
-              console.log("⏳ Notification cooldown active (foreground). Saved to mailbox silently to protect user peace.");
-              saveToHistory(incomingNotice);
-            } else {
-              // Set active notice for in-app floating toast
-              setActiveNotice(incomingNotice);
+            // Persist received alert in the history local registry
+            saveToHistory(incomingNotice);
+            
+            // Auto-dismiss after 8 seconds (fade-out)
+            setTimeout(() => {
+              setActiveNotice((current) => {
+                if (current && current.id === latest.id) {
+                  return null;
+                }
+                return current;
+              });
+            }, 8000);
 
-              // Persist received alert in the history local registry
-              saveToHistory(incomingNotice);
-              localStorage.setItem("mapa_last_notification_shown_at", now.toString());
-              
-              // Auto-dismiss after 8 seconds (fade-out)
-              setTimeout(() => {
-                setActiveNotice((current) => {
-                  if (current && current.id === latest.id) {
-                    return null;
-                  }
-                  return current;
-                });
-              }, 8000);
-
-              // Trigger native browser/mobile system notification if granted
-              if (typeof window !== "undefined" && "Notification" in window && (Notification as any).permission === "granted") {
-                if ("serviceWorker" in navigator) {
-                  navigator.serviceWorker.ready.then((reg) => {
-                    reg.showNotification(latest.title, {
-                      body: latest.body,
-                      icon: "/icon-512.png",
-                      badge: "/icon-512.png",
-                      vibrate: [200, 100, 200]
-                    } as any);
-                  }).catch((err) => {
-                    console.warn("Service Worker notification failed, using fallback:", err);
-                    try {
-                      new Notification(latest.title, {
-                        body: latest.body,
-                        icon: "/icon-512.png"
-                      });
-                    } catch (e) {
-                      console.error("Error showing native notification fallback:", e);
-                    }
-                  });
-                } else {
+            // Trigger native browser/mobile system notification if granted
+            if (typeof window !== "undefined" && "Notification" in window && (Notification as any).permission === "granted") {
+              if ("serviceWorker" in navigator) {
+                navigator.serviceWorker.ready.then((reg) => {
+                  reg.showNotification(latest.title, {
+                    body: latest.body,
+                    icon: "/icon-512.png",
+                    badge: "/icon-512.png",
+                    vibrate: [200, 100, 200]
+                  } as any);
+                }).catch((err) => {
+                  console.warn("Service Worker notification failed, using fallback:", err);
                   try {
                     new Notification(latest.title, {
                       body: latest.body,
                       icon: "/icon-512.png"
                     });
                   } catch (e) {
-                    console.error("Error showing native notification:", e);
+                    console.error("Error showing native notification fallback:", e);
                   }
+                });
+              } else {
+                try {
+                  new Notification(latest.title, {
+                    body: latest.body,
+                    icon: "/icon-512.png"
+                  });
+                } catch (e) {
+                  console.error("Error showing native notification:", e);
                 }
               }
             }
@@ -489,29 +450,18 @@ export const PushNotificationManager: React.FC<{
       receivedAt: new Date().toISOString()
     };
 
-    // Enforce foreground cooldown (60 seconds) to avoid spamming the user
-    const lastShown = localStorage.getItem("mapa_last_notification_shown_at");
-    const now = Date.now();
-    const isCooldownActive = lastShown && (now - parseInt(lastShown, 10) < COOLDOWN_MS);
+    setActiveNotice(newSimNotice);
+    saveToHistory(newSimNotice);
 
-    if (isCooldownActive) {
-      console.log("⏳ Simulated notification cooldown active. Saved silently to mailbox.");
-      saveToHistory(newSimNotice);
-    } else {
-      setActiveNotice(newSimNotice);
-      saveToHistory(newSimNotice);
-      localStorage.setItem("mapa_last_notification_shown_at", now.toString());
-
-      // Auto dismiss toast after 8 seconds of ambient display (fade-out)
-      setTimeout(() => {
-        setActiveNotice((current) => {
-          if (current && current.id === newSimNotice.id) {
-            return null;
-          }
-          return current;
-        });
-      }, 8000);
-    }
+    // Auto dismiss toast after 8 seconds of ambient display (fade-out)
+    setTimeout(() => {
+      setActiveNotice((current) => {
+        if (current && current.id === newSimNotice.id) {
+          return null;
+        }
+        return current;
+      });
+    }, 8000);
   };
 
   // Get category specific info (labels, colors, icons)
@@ -731,21 +681,6 @@ export const PushNotificationManager: React.FC<{
                 <p className="text-xs sm:text-sm text-[#0B152B] leading-relaxed font-medium">
                   {activeNotice.body}
                 </p>
-                {isActionNotification(activeNotice.title, activeNotice.body, activeNotice.category) && !isLocked && (
-                  <div className="pt-2">
-                    <button
-                      onClick={() => {
-                        setActiveNotice(null);
-                        if (onActionTriggered) {
-                          onActionTriggered();
-                        }
-                      }}
-                      className="px-4 py-1.5 bg-[#E86FA3] hover:bg-[#D55F92] text-white rounded-xl text-xs font-bold font-sans shadow-md hover:scale-[1.03] active:scale-[0.97] transition-all flex items-center gap-1 cursor-pointer border-none font-sans"
-                    >
-                      <span>Hacerlo 🎯</span>
-                    </button>
-                  </div>
-                )}
               </div>
 
               {/* Right Column: Close manual trigger button */}

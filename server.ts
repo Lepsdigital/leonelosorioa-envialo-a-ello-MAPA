@@ -109,9 +109,7 @@ function readUsersDB() {
 
 function writeUsersDB(data: any) {
   try {
-    const tempPath = USERS_DB_PATH + ".tmp";
-    fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), "utf-8");
-    fs.renameSync(tempPath, USERS_DB_PATH);
+    fs.writeFileSync(USERS_DB_PATH, JSON.stringify(data, null, 2));
   } catch (err) {
     console.error("Error writing users db:", err);
   }
@@ -1199,142 +1197,6 @@ function generateAccessCode(): string {
   return code;
 }
 
-// Enviar correo de Finalización de Programa con PDF Adjunto vía Gmail API
-async function sendCompletionEmailWithAttachment(email: string, name: string, pdfBase64: string) {
-  const clientId = process.env.OAUTH_CLIENT_ID;
-  const clientSecret = process.env.OAUTH_CLIENT_SECRET;
-  const refreshToken = process.env.OAUTH_REFRESH_TOKEN;
-
-  if (!clientId || !clientSecret || !refreshToken) {
-    console.log(`ℹ️ Google OAuth no configurado. No se puede enviar correo de finalización con adjunto a ${email}.`);
-    return;
-  }
-
-  try {
-    console.log(`⏳ Iniciando envío de Correo de Finalización M.A.P.A. con PDF para: ${email}...`);
-    
-    // Intercambio de Refresh Token por un Access Token fresco
-    const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        refresh_token: refreshToken,
-        grant_type: "refresh_token"
-      })
-    });
-
-    if (!tokenRes.ok) {
-      console.error(`❌ Intercambio de token de Google falló para correo de finalización: ${await tokenRes.text()}`);
-      return;
-    }
-
-    const tokenData = await tokenRes.json();
-    const accessToken = tokenData.access_token;
-
-    const emailSubject = `🏆 ¡Felicitaciones! Tu Informe de Evolución Clínica de 7 Días - M.A.P.A.™ Mujer`;
-    
-    const htmlBody = `
-      <div style="font-family: sans-serif; max-width: 600px; padding: 30px; border: 1px solid rgba(110,72,138,0.2); border-radius: 24px; background-color: #ffffff; color: #333333; margin: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.05);">
-        <div style="text-align: center; margin-bottom: 25px;">
-          <div style="display: inline-block; padding: 12px; background-color: #EDE0F0; border-radius: 20px;">
-            <span style="font-size: 32px;">🏆</span>
-          </div>
-        </div>
-        <h2 style="color: #6E488A; font-size: 22px; text-align: center; margin-top: 0; font-weight: 800; letter-spacing: -0.5px;">¡PROCESO CULMINADO CON ÉXITO!</h2>
-        <p style="font-size: 15px; line-height: 1.6; color: #56346F; text-align: center; font-weight: 500;">Hola <strong>${name}</strong>,</p>
-        <p style="font-size: 14px; line-height: 1.6; color: #444444; text-align: center;">
-          Queremos felicitarte de todo corazón por haber completado los 7 días de tu programa en <strong>M.A.P.A.™ Mujer</strong>. Has demostrado un compromiso admirable con tu bienestar mental y regulación emocional.
-        </p>
-        <p style="font-size: 14px; line-height: 1.6; color: #444444; text-align: center;">
-          Adjunto a este correo electrónico encontrarás tu <strong>Informe Clínico e Institucional de Evolución</strong> en formato PDF, el cual detalla de manera estructurada todas tus métricas de estos 7 días de entrenamiento. Consérvalo como un testimonio de tu resiliencia y el restablecimiento de tu calma vagal.
-        </p>
-        
-        <div style="background-color: #FDF9FD; border: 1px solid rgba(227, 109, 180, 0.2); padding: 20px; border-radius: 16px; margin: 25px 0; text-align: center;">
-          <span style="font-size: 11px; color: #E36DB4; text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 6px; letter-spacing: 1px;">Siguiente Paso Evolutivo</span>
-          <h3 style="color: #6E488A; margin: 5px 0 10px 0; font-size: 16px; font-weight: 800;">¿Quieres continuar con un acompañamiento superior?</h3>
-          <p style="font-size: 12px; color: #666666; margin-bottom: 15px; line-height: 1.4;">
-            Te invitamos de forma exclusiva a formar parte de <strong>M.A.P.A.™ Care - Ecosistema Clínico de Contención Femenina</strong>, con contención clínica en tiempo real con agentes IA, sesiones grupales y dinámicas superiores de regeneración mental.
-          </p>
-          <a href="https://pvmapacare.tupodermental.club/" style="display: inline-block; background-color: #36C4D8; color: #ffffff; font-weight: 800; font-size: 13px; padding: 12px 24px; border-radius: 10px; text-decoration: none; box-shadow: 0 4px 10px rgba(54,196,216,0.3); transition: all 0.2s;">Conocer M.A.P.A.™ Care ➔</a>
-        </div>
-
-        <p style="font-size: 11px; color: #999999; margin-top: 30px; text-align: center; line-height: 1.4;">
-          M.A.P.A.™ Mujer es un sistema de By Tu Poder Mental Mujer™.<br>
-          Este correo es un respaldo oficial síncrono del sistema de autogestión.<br>
-          Si tienes alguna consulta, puedes escribir directamente a contacto@tupodermental.club o tupodermentaloficial@gmail.com.
-        </p>
-      </div>
-    `;
-
-    const cleanPdfName = `MAPA_Mujer_Reporte_Evolucion_${name.replace(/\s+/g, '_')}.pdf`;
-    const mimeMessage = buildMimeMessage(
-      email,
-      "M.A.P.A.™ Mujer",
-      "contacto@tupodermental.club",
-      emailSubject,
-      htmlBody,
-      pdfBase64,
-      cleanPdfName
-    );
-
-    const gmailRes = await fetch("https://gmail.googleapis.com/v1/users/me/messages/send", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${accessToken}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        raw: Buffer.from(mimeMessage)
-          .toString("base64")
-          .replace(/\+/g, "-")
-          .replace(/\//g, "_")
-          .replace(/=+$/, "")
-      })
-    });
-
-    if (!gmailRes.ok) {
-      console.error(`⚠️ Error al enviar correo de finalización por Gmail: ${await gmailRes.text()}`);
-    } else {
-      console.log(`✉️ Correo de Finalización con PDF adjunto enviado correctamente a: ${email}`);
-    }
-
-  } catch (error) {
-    console.error("❌ Excepción de envío Gmail detectada para correo de finalización:", error);
-  }
-}
-
-function buildMimeMessage(to: string, fromName: string, fromEmail: string, subject: string, htmlBody: string, pdfBase64: string, pdfFilename: string) {
-  const boundary = "----=_Part_MAPA_MUJER_Boundary";
-  const subjectEncoded = `=?utf-8?B?${Buffer.from(subject).toString("base64")}?=`;
-
-  const headers = [
-    `From: "${fromName}" <${fromEmail}>`,
-    `To: ${to}`,
-    `Subject: ${subjectEncoded}`,
-    "MIME-Version: 1.0",
-    `Content-Type: multipart/mixed; boundary="${boundary}"`,
-    "",
-    `--${boundary}`,
-    "Content-Type: text/html; charset=utf-8",
-    "Content-Transfer-Encoding: base64",
-    "",
-    Buffer.from(htmlBody).toString("base64"),
-    "",
-    `--${boundary}`,
-    `Content-Type: application/pdf; name="${pdfFilename}"`,
-    "Content-Transfer-Encoding: base64",
-    `Content-Disposition: attachment; filename="${pdfFilename}"`,
-    "",
-    pdfBase64.replace(/^data:application\/pdf;base64,/, ""), // Strip data URL prefix if any
-    "",
-    `--${boundary}--`
-  ];
-
-  return headers.join("\r\n");
-}
-
 // Enviar correo de Código de Acceso y Magic Link personalizado al usuario
 async function sendAccessCodeToUser(email: string, name: string, accessCode: string, appUrl: string) {
   const clientId = process.env.OAUTH_CLIENT_ID;
@@ -1844,7 +1706,7 @@ function authenticateJWT(req: any, res: any, next: any) {
 
       const email = decoded.email;
       const db = readUsersDB();
-      const user = db.find((u: any) => u && u.email && u.email.toLowerCase().trim() === String(email).toLowerCase().trim());
+      const user = db.find((u: any) => u.email === email);
 
       if (!user) {
         return res.status(403).json({ error: "El usuario ya no existe en el sistema." });
@@ -1862,46 +1724,6 @@ function authenticateJWT(req: any, res: any, next: any) {
     return res.status(500).json({ error: "Error interno de validación de sesión." });
   }
 }
-
-// Endpoint de verificación y recuperación de sesión multidispositivo en tiempo real
-app.get("/api/auth/me", authenticateJWT, (req: any, res: any) => {
-  try {
-    const user = req.user;
-    
-    // Asegurar robustez en campos críticos ("Inmortalidad del Servidor")
-    const completedDays = Array.isArray(user.completedDays) ? user.completedDays : [];
-    const unlockedAudios = Array.isArray(user.unlockedAudios) ? user.unlockedAudios : [];
-
-    const userProgress = {
-      activationDate: user.registeredAt || new Date().toISOString(),
-      currentDay: user.currentDay || 1,
-      completedDays,
-      responses: user.responses || {},
-      leadInfo: { 
-        nombre: user.nombre || "", 
-        email: user.email || "", 
-        whatsapp: user.whatsapp || "" 
-      },
-      leadCaptured: true,
-      completionTimestamps: user.completionTimestamps || {},
-      dailyConclusionText: user.dailyConclusionText || {},
-      hasDownloadedApp: !!user.hasDownloadedApp,
-      unlockedAudios
-    };
-
-    const adminEmails = ["contacto@tupodermental.club", "tupodermentaloficial@gmail.com", "agencialeps@gmail.com"];
-    const isAdmin = adminEmails.includes((user.email || "").toLowerCase().trim());
-
-    return res.json({
-      success: true,
-      userProgress,
-      isAdmin
-    });
-  } catch (err) {
-    console.error("Error en /api/auth/me endpoint:", err);
-    return res.status(500).json({ error: "Error interno del servidor al recuperar la sesión." });
-  }
-});
 
 // Middleware de Autenticación exclusivo para el Administrador Maestro (Protección Hermética)
 function authenticateAdminJWT(req: any, res: any, next: any) {
@@ -1963,9 +1785,6 @@ app.post("/api/register-user", (req, res) => {
     const adminEmails = ["contacto@tupodermental.club", "tupodermentaloficial@gmail.com", "agencialeps@gmail.com"];
     const isSpecialAdmin = adminEmails.includes(cleanEmail);
 
-    // Permitir acceso universal con los códigos "LEO777" o "LE0777" para cualquier correo de prueba
-    const isUniversalTestCode = cleanAccessCode === "LEO777" || cleanAccessCode === "LE0777";
-
     let userIndex = db.findIndex((u: any) => u.email === cleanEmail);
 
     // Auto-creación de registro de administrador si no existiera en la BD local
@@ -1996,35 +1815,9 @@ app.post("/api/register-user", (req, res) => {
       userIndex = db.length - 1;
     }
 
-    // Auto-creación de registro de prueba si se digita el código de prueba universal
-    if (userIndex === -1 && isUniversalTestCode && !isSpecialAdmin) {
-      const newTestUser = {
-        nombre: nombre ? nombre.trim() : "Usuario de Prueba",
-        email: cleanEmail,
-        whatsapp: whatsapp || "",
-        registeredAt: new Date().toISOString(),
-        lastActive: new Date().toISOString(),
-        currentDay: 1,
-        completedDays: [],
-        responses: {},
-        completionTimestamps: {},
-        dailyConclusionText: {},
-        initialScanResults: null,
-        isCompleted: false,
-        hasDownloadedApp: false,
-        hotmartApproved: true,
-        accessCode: cleanAccessCode,
-        disabled: false,
-        origin: "Acceso Universal de Pruebas LEO"
-      };
-      db.push(newTestUser);
-      writeUsersDB(db);
-      userIndex = db.length - 1;
-    }
-
     if (userIndex === -1) {
       return res.status(403).json({ 
-        error: "No se encontró ningún registro para este correo electrónico en Hotmart. Por favor, asegúrate de ingresar el correo exacto con el que realizaste la compra o utiliza un código de acceso autorizado." 
+        error: "No se encontró ningún registro para este correo electrónico en Hotmart. Por favor, asegúrate de ingresar el correo exacto con el que realizaste la compra." 
       });
     }
 
@@ -2041,8 +1834,8 @@ app.post("/api/register-user", (req, res) => {
       }
     } else {
       const dbCode = (user.accessCode || "").trim().toUpperCase();
-      // Permitir de manera ultra-flexible tanto "LEO777" como "LE0777" (letra O vs número 0)
-      const isTestUserWithZero = (cleanEmail === "leonelosorioa@gmail.com" || isUniversalTestCode) && (cleanAccessCode === "LE0777" || cleanAccessCode === "LEO777");
+      // Permitir de manera ultra-flexible tanto "LEO777" como "LE0777" (letra O vs número 0) para el correo de pruebas leonelosorioa@gmail.com
+      const isTestUserWithZero = cleanEmail === "leonelosorioa@gmail.com" && (cleanAccessCode === "LE0777" || cleanAccessCode === "LEO777");
       
       if (!isTestUserWithZero && (!dbCode || cleanAccessCode !== dbCode)) {
         return res.status(401).json({ error: "El Código de Acceso ingresado es incorrecto. Por favor, verifícalo en tu correo electrónico o digítalo correctamente." });
@@ -2129,23 +1922,10 @@ app.post("/api/update-user-progress", authenticateJWT, (req, res) => {
       if (db[userIndex].disabled) {
         return res.status(403).json({ error: "Tu acceso ha sido inhabilitado por el administrador." });
       }
-
-      // Check if already completed to block resets
-      const isAlreadyCompleted = db[userIndex].isCompleted || (Array.isArray(db[userIndex].completedDays) && db[userIndex].completedDays.length === 7);
-      if (isAlreadyCompleted) {
-        const targetCurrentDay = typeof programProgress.currentDay === "number" ? programProgress.currentDay : 1;
-        const targetCompletedDays = Array.isArray(programProgress.completedDays) ? programProgress.completedDays : [];
-        if (targetCurrentDay < 7 || targetCompletedDays.length < 7) {
-          return res.status(400).json({
-            error: "Has culminado con éxito el ecosistema M.A.P.A.™ Mujer. Tu historial de 7 días está custodiado y no puede ser reiniciado para garantizar tu seguimiento clínico. Te invitamos a continuar con M.A.P.A.™ Care."
-          });
-        }
-      }
-
-      db[userIndex].currentDay = typeof programProgress.currentDay === "number" ? programProgress.currentDay : 1;
-      db[userIndex].completedDays = Array.isArray(programProgress.completedDays) ? programProgress.completedDays : [];
-      db[userIndex].responses = programProgress.responses || {};
-      db[userIndex].completionTimestamps = programProgress.completionTimestamps || {};
+      db[userIndex].currentDay = programProgress.currentDay;
+      db[userIndex].completedDays = programProgress.completedDays;
+      db[userIndex].responses = programProgress.responses;
+      db[userIndex].completionTimestamps = programProgress.completionTimestamps;
       if (programProgress.dailyConclusionText) {
         db[userIndex].dailyConclusionText = programProgress.dailyConclusionText;
       }
@@ -2153,8 +1933,10 @@ app.post("/api/update-user-progress", authenticateJWT, (req, res) => {
         db[userIndex].hasDownloadedApp = !!programProgress.hasDownloadedApp;
       }
       db[userIndex].lastActive = new Date().toISOString();
-      db[userIndex].isCompleted = Array.isArray(db[userIndex].completedDays) ? db[userIndex].completedDays.length === 7 : false;
-      db[userIndex].unlockedAudios = Array.isArray(programProgress.unlockedAudios) ? programProgress.unlockedAudios : [];
+      db[userIndex].isCompleted = programProgress.completedDays.length === 7;
+      if (programProgress.unlockedAudios) {
+        db[userIndex].unlockedAudios = programProgress.unlockedAudios;
+      }
 
       writeUsersDB(db);
       return res.json({ success: true, message: "Avance guardado de forma persistente." });
@@ -2173,7 +1955,7 @@ app.post("/api/update-user-progress", authenticateJWT, (req, res) => {
         dailyConclusionText: programProgress.dailyConclusionText || {},
         unlockedAudios: programProgress.unlockedAudios || [],
         initialScanResults: null,
-        isCompleted: Array.isArray(programProgress.completedDays) ? programProgress.completedDays.length === 7 : false,
+        isCompleted: programProgress.completedDays ? programProgress.completedDays.length === 7 : false,
         hasDownloadedApp: !!programProgress.hasDownloadedApp
       };
       db.push(newUser);
@@ -2183,47 +1965,6 @@ app.post("/api/update-user-progress", authenticateJWT, (req, res) => {
   } catch (error) {
     console.error("Error updating user progress:", error);
     return res.status(500).json({ error: "Error en sincronización en la nube." });
-  }
-});
-
-// ==========================================
-// PERSISTENCIA: MARCAR PROGRAMA COMO COMPLETADO TOTALMENTE (CON INFORME PDF)
-// ==========================================
-app.post("/api/premium/complete-program", authenticateJWT, async (req, res) => {
-  try {
-    const { pdfBase64 } = req.body;
-    const email = (req as any).user.email;
-    const db = readUsersDB();
-    const userIndex = db.findIndex((u: any) => u && u.email && u.email.toLowerCase().trim() === String(email).toLowerCase().trim());
-
-    if (userIndex === -1) {
-      return res.status(404).json({ error: "Usuario no encontrado." });
-    }
-
-    if (db[userIndex].disabled) {
-      return res.status(403).json({ error: "Tu acceso ha sido inhabilitado por el administrador." });
-    }
-
-    // Set as completed
-    db[userIndex].isCompleted = true;
-    db[userIndex].lastActive = new Date().toISOString();
-    writeUsersDB(db);
-
-    // Dispatch completion email if pdfBase64 is provided
-    if (pdfBase64) {
-      sendCompletionEmailWithAttachment(db[userIndex].email, db[userIndex].nombre, pdfBase64)
-        .catch((err) => console.error("Error sending completion report email:", err));
-    } else {
-      console.log(`ℹ️ No se recibió pdfBase64 para enviar a ${db[userIndex].email}`);
-    }
-
-    return res.json({ 
-      success: true, 
-      message: "Proceso guardado de forma absoluta. Se ha bloqueado tu reinicio y se está despachando tu informe clínico a tu correo electrónico." 
-    });
-  } catch (error) {
-    console.error("Error completing program:", error);
-    return res.status(500).json({ error: "Ocurrió un error en el servidor al finalizar el programa." });
   }
 });
 
@@ -2239,7 +1980,7 @@ app.post("/api/save-unlocked-audio", authenticateJWT, (req, res) => {
 
     const email = (req as any).user.email;
     const db = readUsersDB();
-    const userIndex = db.findIndex((u: any) => u && u.email && u.email.toLowerCase().trim() === String(email).toLowerCase().trim());
+    const userIndex = db.findIndex((u: any) => u.email === email);
 
     if (userIndex > -1) {
       if (db[userIndex].disabled) {
@@ -3228,86 +2969,11 @@ app.post("/api/push-subscribe", (req, res) => {
   }
 });
 
-// Robust chronological calculations and check if action is needed to prevent notification spamming locked days
-function checkIfUserDayIsLocked(user: any): boolean {
-  try {
-    if (!user) return false;
-    
-    // Day 1 is always unlocked immediately upon starting the program
-    const currentDay = typeof user.currentDay === "number" ? user.currentDay : 1;
-    if (currentDay === 1) {
-      return false;
-    }
-
-    const prevDay = currentDay - 1;
-    let prevCompletionMs = 0;
-    const activationDate = user.registeredAt || user.activationDate;
-
-    // Check if we have the completion timestamp of the previous day
-    if (user.completionTimestamps && user.completionTimestamps[prevDay]) {
-      prevCompletionMs = new Date(user.completionTimestamps[prevDay]).getTime();
-    } else if (activationDate) {
-      const activatedDate = new Date(activationDate);
-      prevCompletionMs = activatedDate.getTime() + (prevDay - 1) * 24 * 60 * 60 * 1000;
-    } else {
-      // If we have no dates at all, assume not locked
-      return false;
-    }
-
-    const now = Date.now();
-    const unlockTime = prevCompletionMs + 24 * 60 * 60 * 1000;
-    const msRemaining = unlockTime - now;
-    
-    return msRemaining > 0;
-  } catch (err) {
-    console.error("Error in checkIfUserDayIsLocked safe check:", err);
-    return false; // Fallback to false (unlocked) to ensure server stability
-  }
-}
-
-function isActionNotification(title: string, body: string, category?: string): boolean {
-  const t = (title || "").toLowerCase();
-  const b = (body || "").toLowerCase();
-  const c = (category || "").toLowerCase();
-  
-  // Testimonials and case stories are strictly informational
-  if (t.includes("testimonio") || b.includes("testimonio") || t.includes("caso de éxito") || b.includes("caso de éxito") || t.includes("caso de exito") || b.includes("caso de exito")) {
-    return false;
-  }
-  
-  const actionKeywords = [
-    "test", "prueba", "tarea", "reflexión", "reflexion", "pendiente", 
-    "completar", "avance", "día actual", "día de hoy", "dia de hoy", 
-    "evaluación", "evaluacion", "sintonizar", "completado"
-  ];
-  
-  const matchesKeyword = actionKeywords.some(keyword => t.includes(keyword) || b.includes(keyword));
-  const isActionCategory = c === "reminder" || c === "unlocked" || c === "guía rápida de emergencia" || c === "guia rapida de emergencia";
-  
-  return matchesKeyword || isActionCategory;
-}
-
 app.post("/api/admin/dispatch-push", authenticateAdminJWT, async (req, res) => {
   try {
     const { title, body, userEmail, category } = req.body;
     if (!title || !body) {
       return res.status(400).json({ error: "Título y mensaje requeridos." });
-    }
-
-    const isAction = isActionNotification(title, body, category);
-    const db = readUsersDB();
-    const targetEmailClean = userEmail ? String(userEmail).toLowerCase().trim() : "";
-
-    // 1. Pre-dispatch Chronological validation for single user
-    if (targetEmailClean && targetEmailClean !== "all") {
-      const user = db.find((u: any) => u.email === targetEmailClean);
-      if (user && isAction && checkIfUserDayIsLocked(user)) {
-        return res.status(403).json({
-          success: false,
-          error: "Despacho prohibido cronológicamente.",
-          message: `La usuaria ${user.email} se encuentra dentro de la ventana de espera de 24 horas para desbloquear el Día ${user.currentDay}. La notificación no ha sido enviada para evitar saturación y confusión.`
-        });
-      }
     }
 
     const pushMsg = {
@@ -3323,7 +2989,9 @@ app.post("/api/admin/dispatch-push", authenticateAdminJWT, async (req, res) => {
     pendingPushes.push(pushMsg);
 
     // Send real Web Push notifications
+    const db = readUsersDB();
     let targets: any[] = [];
+    const targetEmailClean = userEmail ? String(userEmail).toLowerCase().trim() : "";
 
     if (targetEmailClean && targetEmailClean !== "all") {
       const user = db.find((u: any) => u.email === targetEmailClean);
@@ -3331,13 +2999,9 @@ app.post("/api/admin/dispatch-push", authenticateAdminJWT, async (req, res) => {
         targets = [...user.pushSubscriptions];
       }
     } else {
-      // Get all subscriptions from all non-locked users (pre-dispatch filtering for multi-user)
+      // Get all subscriptions from all users
       db.forEach((user: any) => {
         if (user.pushSubscriptions && user.pushSubscriptions.length > 0) {
-          if (isAction && checkIfUserDayIsLocked(user)) {
-            console.log(`🔇 Skipping push dispatch to chronologically locked user: ${user.email}`);
-            return; // Skip this user to keep their mental calm
-          }
           targets.push(...user.pushSubscriptions);
         }
       });
@@ -3438,31 +3102,11 @@ async function startServer() {
   } else {
     // Production Mode
     const distPath = path.join(process.cwd(), 'dist');
-    
-    // Explicit header check middleware to prevent accidental browser file download trigger for PWA static assets
-    app.use((req, res, next) => {
-      if (req.path.endsWith('manifest.json')) {
-        res.setHeader('Content-Type', 'application/manifest+json');
-      }
-      if (req.path.endsWith('.html') || req.path === '/' || req.path.endsWith('manifest.json') || req.path.endsWith('.js') || req.path.endsWith('.css')) {
-        res.removeHeader('Content-Disposition');
-        res.setHeader('X-Content-Type-Options', 'nosniff');
-      }
-      next();
-    });
-
-    app.use(express.static(distPath, {
-      setHeaders: (res, path) => {
-        // Force inline rendering, never attachment download
-        res.removeHeader('Content-Disposition');
-      }
-    }));
-
+    app.use(express.static(distPath));
     app.get('*', (req, res) => {
-      res.removeHeader('Content-Disposition');
       res.sendFile(path.join(distPath, 'index.html'));
     });
-    console.log("📦 Production static assets mounted with PWA-safe download headers.");
+    console.log("📦 Production static assets mounted.");
   }
 
   app.listen(PORT, "0.0.0.0", () => {

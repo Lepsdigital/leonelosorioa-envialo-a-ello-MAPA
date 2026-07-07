@@ -86,42 +86,11 @@ export const ScanResults: React.FC<ScanResultsProps> = ({
     return "bg-white border-[#36C4D8]/20 shadow-[0_0_20px_rgba(54,196,216,0.1)]";
   };
 
-  // Motion variants for smooth fade-in / pulse transition after loading
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.12,
-        delayChildren: 0.05
-      }
-    }
-  };
-
-  const cardVariants = {
-    hidden: { opacity: 0, y: 25 },
-    show: { 
-      opacity: 1, 
-      y: 0,
-      transition: {
-        type: "spring",
-        stiffness: 85,
-        damping: 14
-      }
-    }
-  };
-
   return (
-    <motion.div 
-      variants={containerVariants}
-      initial="hidden"
-      animate="show"
-      className="max-w-4xl mx-auto space-y-10 py-2 px-2" 
-      id="scan_results_view"
-    >
+    <div className="max-w-4xl mx-auto space-y-10 py-2 px-2" id="scan_results_view">
       
       {/* HEADER RESULT CARD */}
-      <motion.section variants={cardVariants} className="text-center space-y-4">
+      <section className="text-center space-y-4">
         <div className="inline-flex items-center space-x-2 bg-[#EDE0F0] border border-[#6E488A]/20 p-1.5 px-4 rounded-full">
           <UserCheck className="w-4 h-4 text-[#411F66]" />
           <span className="text-[10px] font-mono uppercase tracking-wider text-[#411F66] font-extrabold">
@@ -134,16 +103,13 @@ export const ScanResults: React.FC<ScanResultsProps> = ({
         <p className="text-sm text-[#0B152B]/85 max-w-xl mx-auto font-sans leading-relaxed font-medium">
           Tu escaneo de sensibilidad corporal y emocional ha concluido con éxito. Aquí están tus indicadores principales de protección mental.
         </p>
-      </motion.section>
+      </section>
 
       {/* THREE COLUMN GRID - STATS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         
         {/* Metric Card 1: Activación */}
-        <motion.div 
-          variants={cardVariants}
-          className="p-6 rounded-3xl bg-white border border-[#E86FA3]/20 space-y-4 text-left shadow-[0_0_20px_rgba(232,111,163,0.1)] transition-all hover:scale-[1.01] hover:shadow-[0_0_25px_rgba(232,111,163,0.15)]"
-        >
+        <div className="p-6 rounded-3xl bg-white border border-[#E86FA3]/20 space-y-4 text-left shadow-[0_0_20px_rgba(232,111,163,0.1)] transition-all hover:scale-[1.01] hover:shadow-[0_0_25px_rgba(232,111,163,0.15)]">
           <div className="flex items-center justify-between">
             <span className="text-xs font-mono uppercase text-[#411F66] font-bold tracking-widest">ACTIVACIÓN CORPORAL</span>
             <span className="text-xl">🫁</span>
@@ -157,13 +123,10 @@ export const ScanResults: React.FC<ScanResultsProps> = ({
           <div className="w-full bg-[#EDE0F0] h-1.5 rounded-full overflow-hidden">
             <div className="h-full bg-gradient-to-r from-[#E86FA3] to-[#F58BC8]" style={{ width: `${metrics.activacion}%` }} />
           </div>
-        </motion.div>
+        </div>
 
         {/* Metric Card 2: Alerta Social */}
-        <motion.div 
-          variants={cardVariants}
-          className="p-6 rounded-3xl bg-white border border-[#6E488A]/12 space-y-4 text-left shadow-md transition-all hover:scale-[1.01]"
-        >
+        <div className="p-6 rounded-3xl bg-white border border-[#6E488A]/12 space-y-4 text-left shadow-md transition-all hover:scale-[1.01]">
           <div className="flex items-center justify-between">
             <span className="text-xs font-mono uppercase text-[#411F66] font-bold tracking-widest">ALERTA SOCIAL</span>
             <span className="text-xl">👁️</span>
@@ -177,13 +140,10 @@ export const ScanResults: React.FC<ScanResultsProps> = ({
           <div className="w-full bg-[#EDE0F0] h-1.5 rounded-full overflow-hidden">
             <div className="h-full bg-[#411F66]" style={{ width: `${metrics.alerta}%` }} />
           </div>
-        </motion.div>
+        </div>
 
         {/* Metric Card 3: Riesgo Sobrecarga */}
-        <motion.div 
-          variants={cardVariants}
-          className={`p-6 rounded-3xl border space-y-4 text-left transition-all hover:scale-[1.01] ${getRiesgoBg(metrics.riesgoSobrecarga)}`}
-        >
+        <div className={`p-6 rounded-3xl border space-y-4 text-left transition-all hover:scale-[1.01] ${getRiesgoBg(metrics.riesgoSobrecarga)}`}>
           <div className="flex items-center justify-between">
             <span className="text-xs font-mono uppercase text-[#411F66] font-bold tracking-widest">RIESGO DE SOBRECARGA</span>
             <span className="text-xl">🎒</span>
@@ -199,7 +159,7 @@ export const ScanResults: React.FC<ScanResultsProps> = ({
           <div className="w-full bg-[#EDE0F0] h-1.5 rounded-full overflow-hidden">
             <div className={`h-full ${getRiesgoColor(metrics.riesgoSobrecarga).includes("E86FA3") ? "bg-[#E86FA3]" : "bg-[#36C4D8]"}`} style={{ width: `${metrics.riesgoSobrecarga}%` }} />
           </div>
-        </motion.div>
+        </div>
 
       </div>
 
@@ -207,10 +167,7 @@ export const ScanResults: React.FC<ScanResultsProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Radial Radar Comparison chart */}
-        <motion.div 
-          variants={cardVariants}
-          className="lg:col-span-5 p-6 rounded-3xl bg-white border border-[#36C4D8]/20 flex flex-col justify-center items-center h-[340px] shadow-[0_0_20px_rgba(54,196,216,0.1)] transition-all hover:scale-[1.01]"
-        >
+        <div className="lg:col-span-5 p-6 rounded-3xl bg-white border border-[#36C4D8]/20 flex flex-col justify-center items-center h-[340px] shadow-[0_0_20px_rgba(54,196,216,0.1)] transition-all hover:scale-[1.01]">
           <span className="text-xs font-mono text-[#411F66] uppercase tracking-widest font-black block mb-4">
             REGISTRO RADIAL DE ADAPTACIÓN
           </span>
@@ -233,13 +190,10 @@ export const ScanResults: React.FC<ScanResultsProps> = ({
               </RadarChart>
             </ResponsiveContainer>
           </div>
-        </motion.div>
+        </div>
 
         {/* Interpretation generated with AI */}
-        <motion.div 
-          variants={cardVariants}
-          className="lg:col-span-7 p-6 sm:p-8 rounded-3xl bg-white border border-[#E86FA3]/25 space-y-6 text-left flex flex-col justify-between shadow-[0_0_20px_rgba(232,111,163,0.08)] relative overflow-hidden transition-all hover:scale-[1.01]"
-        >
+        <div className="lg:col-span-7 p-6 sm:p-8 rounded-3xl bg-white border border-[#E86FA3]/25 space-y-6 text-left flex flex-col justify-between shadow-[0_0_20px_rgba(232,111,163,0.08)] relative overflow-hidden transition-all hover:scale-[1.01]">
           <div className="absolute top-0 right-0 w-32 h-32 bg-[#36C4D8]/5 rounded-full blur-3xl pointer-events-none" />
           
           <div className="space-y-4">
@@ -271,7 +225,7 @@ export const ScanResults: React.FC<ScanResultsProps> = ({
               ))}
             </ul>
           </div>
-        </motion.div>
+        </div>
 
       </div>
 
@@ -338,25 +292,22 @@ export const ScanResults: React.FC<ScanResultsProps> = ({
             </div>
 
             <form onSubmit={handleSubmitSignup} className="space-y-4">
-              {/* Cómo quieres que te llamemos */}
+              {/* Nombre Completo */}
               <div className="space-y-1">
                 <label className="block text-xs font-mono text-[#411F66] uppercase tracking-widest font-black">
-                  ¿Cómo quieres que te llamemos?
+                  Nombre Completo
                 </label>
                 <div className="relative">
                   <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#411F66]/60" />
                   <input 
                     type="text" 
                     required
-                    placeholder="Tu nombre o cómo te sientas más cómoda..."
+                    placeholder="Ej. María Pérez"
                     value={nombre}
                     onChange={(e) => setNombre(e.target.value)}
                     className="w-full bg-white border border-[#6E488A]/15 focus:border-[#36C4D8] placeholder:text-gray-400 rounded-xl p-3 pl-11 text-sm outline-none text-[#0B152B] transition-all font-sans font-semibold"
                   />
                 </div>
-                <p className="text-[10px] text-[#56346F]/80 leading-relaxed font-sans font-medium mt-1 select-none">
-                  No necesitas darnos tus apellidos. Usaremos este nombre únicamente para personalizar tu dashboard y dirigirnos a ti con cariño durante tu proceso.
-                </p>
               </div>
 
               {/* Correo Electrónico */}
@@ -444,6 +395,7 @@ export const ScanResults: React.FC<ScanResultsProps> = ({
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+
+    </div>
   );
 };

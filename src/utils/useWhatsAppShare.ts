@@ -79,20 +79,9 @@ export const useWhatsAppShare = () => {
 
     if (navigator.share) {
       try {
-        // Clean text for native share to prevent duplicating the URL
-        let shareTextForNative = text;
-        if (shareTextForNative.includes(FUNNEL_URL)) {
-          shareTextForNative = shareTextForNative
-            .replace(FUNNEL_URL, "")
-            .replace(/\n👉\s*$/, "")
-            .replace(/:\s*👉\s*$/, "")
-            .replace(/:\s*$/, "")
-            .trim();
-        }
-
         await navigator.share({
           title: "M.A.P.A.™ Mujer",
-          text: shareTextForNative,
+          text: text,
           url: FUNNEL_URL
         });
         return { success: true, method: "share" };

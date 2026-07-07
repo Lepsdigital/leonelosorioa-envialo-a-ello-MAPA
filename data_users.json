@@ -49,24 +49,5 @@
     "accessCode": "LEO777",
     "disabled": false,
     "origin": "Pruebas Autorizadas Leonel"
-  },
-  {
-    "nombre": "Pepe Mojica",
-    "email": "leitovive@gmail.com",
-    "whatsapp": "",
-    "registeredAt": "2026-07-04T14:17:01.787Z",
-    "lastActive": "2026-07-04T14:17:01.787Z",
-    "currentDay": 1,
-    "completedDays": [],
-    "responses": {},
-    "completionTimestamps": {},
-    "dailyConclusionText": {},
-    "initialScanResults": null,
-    "isCompleted": false,
-    "hasDownloadedApp": false,
-    "hotmartApproved": true,
-    "accessCode": "LE0777",
-    "disabled": false,
-    "origin": "Acceso Universal de Pruebas LEO"
   }
 ]

@@ -1,0 +1,31 @@
+{
+  "name": "M.A.P.A.™ - Autodescubrimiento Emocional",
+  "short_name": "M.A.P.A.™",
+  "description": "Mapa de Activación y Protección Emocional - Experiencia interactiva de autodescubrimiento emocional para comprender la ansiedad.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07111F",
+  "theme_color": "#07111F",
+  "categories": ["health", "lifestyle", "education"],
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
