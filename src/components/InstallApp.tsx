@@ -96,14 +96,32 @@ export const InstallApp: React.FC = () => {
 
   return (
     <>
-      <button
+      <motion.button
         id="pwa-install-button"
         onClick={handleInstallClick}
-        className="flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-bold text-sm tracking-wide shadow-lg hover:shadow-xl active:scale-95 hover:scale-102 transition-all duration-200 cursor-pointer border-none"
+        initial={{ opacity: 0, scale: 0.9, y: 15 }}
+        animate={{ 
+          opacity: 1, 
+          scale: [1, 1.05, 1],
+          y: 0 
+        }}
+        transition={{ 
+          duration: 0.6, 
+          ease: "easeOut",
+          scale: {
+            delay: 0.5,
+            duration: 0.5,
+            repeat: 1,
+            repeatType: "reverse"
+          }
+        }}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        className="flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-bold text-sm tracking-wide shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer border-none"
       >
         <Smartphone className="w-4.5 h-4.5 animate-bounce" />
         <span>{isIOS ? 'Cómo instalar en iPhone' : 'Descargar PWA'}</span>
-      </button>
+      </motion.button>
 
       {/* Elegant iOS Safari Installation Guide Modal */}
       <AnimatePresence>
