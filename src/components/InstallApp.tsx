@@ -7,9 +7,20 @@ export const InstallApp: React.FC = () => {
   const [isReady, setIsReady] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [showiOSGuide, setShowiOSGuide] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
-    // 1. Detect if the user is on iOS (Safari)
+    // 1. Detect if running in standalone mode (already installed PWA)
+    const checkStandalone = () => {
+      const isStandaloneMedia = window.matchMedia('(display-mode: standalone)').matches;
+      const isStandaloneNavigator = (window.navigator as any).standalone === true;
+      return isStandaloneMedia || isStandaloneNavigator;
+    };
+    
+    const standaloneActive = checkStandalone();
+    setIsStandalone(standaloneActive);
+
+    // 2. Detect if the user is on iOS (Safari)
     const ua = window.navigator.userAgent.toLowerCase();
     const isIosDevice = /iphone|ipad|ipod/.test(ua);
     const isMacIPad = navigator.maxTouchPoints > 0 && /macintosh/.test(ua);
@@ -17,7 +28,7 @@ export const InstallApp: React.FC = () => {
     
     setIsIOS(detectIOS);
 
-    // 2. Event listeners for native beforeinstallprompt (Android / Chrome / PC)
+    // 3. Event listeners for native beforeinstallprompt (Android / Chrome / PC)
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -69,6 +80,11 @@ export const InstallApp: React.FC = () => {
       setIsReady(false);
     }
   };
+
+  // If already running in standalone mode (as an installed PWA), hide the button permanently.
+  if (isStandalone) {
+    return null;
+  }
 
   // The button should be shown if we detected iOS (always available as a helper)
   // OR if the native installation prompt is ready on other platforms.
