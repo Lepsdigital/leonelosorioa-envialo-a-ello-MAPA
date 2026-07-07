@@ -85,6 +85,41 @@ self.addEventListener("fetch", (event) => {
   );
 });
 
+// Helper to calculate lock status safely in Service Worker
+function isTestLocked(progress) {
+  try {
+    if (!progress || !progress.activationDate) {
+      return false; // Default to unlocked if no data
+    }
+    const currentDay = Number(progress.currentDay || 1);
+    if (currentDay === 1) {
+      return false; // Day 1 is always unlocked immediately
+    }
+    const prevDay = currentDay - 1;
+    let prevCompletionMs = 0;
+
+    // Check if we have the completion timestamp of the previous day
+    if (progress.completionTimestamps && progress.completionTimestamps[prevDay]) {
+      prevCompletionMs = new Date(progress.completionTimestamps[prevDay]).getTime();
+    } else {
+      // Fallback calculation based on activation date
+      const activatedDate = new Date(progress.activationDate);
+      prevCompletionMs = activatedDate.getTime() + (prevDay - 1) * 24 * 60 * 60 * 1000;
+    }
+
+    if (isNaN(prevCompletionMs)) {
+      return false;
+    }
+
+    const now = new Date().getTime();
+    const unlockTime = prevCompletionMs + 24 * 60 * 60 * 1000;
+    return (unlockTime - now) > 0; // True if locked, false if unlocked
+  } catch (err) {
+    console.error("[SW] Error calculating chronological state:", err);
+    return false; // Fail open safely
+  }
+}
+
 // Real push notification delivery event listener
 self.addEventListener("push", (event) => {
   let data = {
@@ -102,20 +137,58 @@ self.addEventListener("push", (event) => {
     }
   }
 
-  const options = {
-    body: data.body,
-    icon: data.icon || "/icon-512.png",
-    badge: data.badge || "/icon-512.png",
-    tag: "mapa-push-notif",
-    vibrate: [200, 100, 200],
-    data: data,
-    actions: [
-      { action: "explore", title: "Ingresar a M.A.P.A.™ 🧘‍♀️" }
-    ]
-  };
-
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
+    caches.open("mapa-user-progress-cache")
+      .then((cache) => cache.match("/local-user-progress"))
+      .then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse.json();
+        }
+        return null;
+      })
+      .then((progress) => {
+        const isLocked = isTestLocked(progress);
+        
+        const actions = [
+          { action: "explore", title: "Ingresar a M.A.P.A.™ 🧘‍♀️" }
+        ];
+
+        // Only show "Hacerlo" if progress is found and the test is NOT locked
+        if (progress && !isLocked) {
+          actions.unshift({
+            action: "test",
+            title: `Hacerlo (Día ${progress.currentDay}) ➔`
+          });
+        }
+
+        const options = {
+          body: data.body,
+          icon: data.icon || "/icon-512.png",
+          badge: data.badge || "/icon-512.png",
+          tag: "mapa-push-notif",
+          vibrate: [200, 100, 200],
+          data: { ...data, progress },
+          actions: actions
+        };
+
+        return self.registration.showNotification(data.title, options);
+      })
+      .catch((err) => {
+        console.error("[SW] Push event handling with cache check failed:", err);
+        // Fallback option if matching cache fails
+        const options = {
+          body: data.body,
+          icon: data.icon || "/icon-512.png",
+          badge: data.badge || "/icon-512.png",
+          tag: "mapa-push-notif",
+          vibrate: [200, 100, 200],
+          data: data,
+          actions: [
+            { action: "explore", title: "Ingresar a M.A.P.A.™ 🧘‍♀️" }
+          ]
+        };
+        return self.registration.showNotification(data.title, options);
+      })
   );
 });
 
@@ -123,18 +196,26 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
 
+  let targetUrl = "/";
+  if (event.action === "test") {
+    targetUrl = "/?action=test";
+  }
+
   // Redirect users to the application main interface
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
       // Find open tab
       for (const client of clientList) {
         if (client.url.includes("/") && "focus" in client) {
+          if (event.action === "test" && "navigate" in client) {
+            client.navigate(targetUrl);
+          }
           return client.focus();
         }
       }
       // If no open tab, open a new one
       if (self.clients.openWindow) {
-        return self.clients.openWindow("/");
+        return self.clients.openWindow(targetUrl);
       }
     })
   );

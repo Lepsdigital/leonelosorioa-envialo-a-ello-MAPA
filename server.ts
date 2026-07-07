@@ -2988,6 +2988,50 @@ app.post("/api/admin/dispatch-push", authenticateAdminJWT, async (req, res) => {
     // Save to historical queue for client polling fallback/backup
     pendingPushes.push(pushMsg);
 
+    // Helper to calculate lock status safely (including robust try-catch for null/undefined fields)
+    function isUserDayUnlocked(user: any): boolean {
+      try {
+        if (!user) return true;
+        const activationDateStr = user.registeredAt || user.activationDate;
+        if (!activationDateStr) {
+          return true; // No start date, allow
+        }
+
+        const currentDay = Number(user.currentDay || 1);
+        if (currentDay === 1) {
+          return true; // Day 1 is always unlocked
+        }
+
+        const prevDay = currentDay - 1;
+        let prevCompletionMs = 0;
+
+        // Check completionTimestamps safely
+        if (user.completionTimestamps && user.completionTimestamps[prevDay]) {
+          prevCompletionMs = new Date(user.completionTimestamps[prevDay]).getTime();
+        } else {
+          // Fallback based on activation date
+          const activatedDate = new Date(activationDateStr);
+          prevCompletionMs = activatedDate.getTime() + (prevDay - 1) * 24 * 60 * 60 * 1000;
+        }
+
+        if (isNaN(prevCompletionMs)) {
+          return true; // Safe fallback
+        }
+
+        const now = new Date().getTime();
+        const unlockTime = prevCompletionMs + 24 * 60 * 60 * 1000;
+        const msRemaining = unlockTime - now;
+
+        return msRemaining <= 0;
+      } catch (err) {
+        console.error("❌ Exception during user chronological calculation:", err);
+        return true; // Safe fallback to avoid crashing server
+      }
+    }
+
+    // Determine if the message invites action (e.g., "test listo", "hacerlo", "tu test", "completar", "día 5", etc.)
+    const isActionAlert = /test|día|dia|listo|hacer|completar|acción|accion|toca|disponible/i.test(title + " " + body);
+
     // Send real Web Push notifications
     const db = readUsersDB();
     let targets: any[] = [];
@@ -2995,14 +3039,30 @@ app.post("/api/admin/dispatch-push", authenticateAdminJWT, async (req, res) => {
 
     if (targetEmailClean && targetEmailClean !== "all") {
       const user = db.find((u: any) => u.email === targetEmailClean);
-      if (user && user.pushSubscriptions && user.pushSubscriptions.length > 0) {
-        targets = [...user.pushSubscriptions];
+      if (user) {
+        // Enforce chronological check for action alerts
+        if (isActionAlert && !isUserDayUnlocked(user)) {
+          return res.status(400).json({
+            error: `La notificación invita a una acción, pero la usuaria (${user.email}) aún tiene el test del Día ${user.currentDay} bloqueado cronológicamente. Faltan horas.`
+          });
+        }
+        if (user.pushSubscriptions && user.pushSubscriptions.length > 0) {
+          targets = [...user.pushSubscriptions];
+        }
       }
     } else {
-      // Get all subscriptions from all users
+      // Get all subscriptions from all users who are unlocked (if it's an action alert)
       db.forEach((user: any) => {
         if (user.pushSubscriptions && user.pushSubscriptions.length > 0) {
-          targets.push(...user.pushSubscriptions);
+          if (isActionAlert) {
+            if (isUserDayUnlocked(user)) {
+              targets.push(...user.pushSubscriptions);
+            } else {
+              console.log(`🚫 Skipping push notification for ${user.email} because Day ${user.currentDay} is chronologically locked.`);
+            }
+          } else {
+            targets.push(...user.pushSubscriptions);
+          }
         }
       });
     }

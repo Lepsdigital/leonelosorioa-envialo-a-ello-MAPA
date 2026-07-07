@@ -682,6 +682,22 @@ export default function App() {
         syncProgressToCloud(payload, userEmail);
       }
     }
+
+    // Synchronize to Cache Storage for Service Worker push notification dynamic state check
+    if (programProgress && typeof window !== "undefined" && 'caches' in window) {
+      try {
+        const cacheData = new Response(JSON.stringify(programProgress), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+        caches.open("mapa-user-progress-cache").then((cache) => {
+          cache.put("/local-user-progress", cacheData);
+        }).catch((err) => {
+          console.warn("[M.A.P.A.] Error caching user progress for sw sync:", err);
+        });
+      } catch (err) {
+        console.warn("[M.A.P.A.] Failed to write progress to cache:", err);
+      }
+    }
   }, [programProgress, leadInfo, leadCaptured, currentUserEmail]);
 
   // Autocomplete existing profile fields live when typing an email
@@ -706,6 +722,67 @@ export default function App() {
       }
     }
   }, [loginEmail]);
+
+  // Deep-link check: if URL has action=test, handle automatic entrance and launch daily test
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const action = params.get("action");
+      if (action === "test") {
+        const activeEmail = localStorage.getItem("MAPA_CURRENT_USER_EMAIL");
+        if (activeEmail) {
+          const emailKey = activeEmail.toLowerCase().trim();
+          const savedProgress = localStorage.getItem(`MAPA_USER_PROGRESS_${emailKey}`);
+          if (savedProgress) {
+            try {
+              const parsed = JSON.parse(savedProgress);
+              setProgramProgress(parsed);
+              
+              // Verify chronological lock
+              const currentDay = parsed.currentDay || 1;
+              let isLocked = false;
+              if (currentDay > 1) {
+                const prevDay = currentDay - 1;
+                let prevCompletionMs = 0;
+                if (parsed.completionTimestamps && parsed.completionTimestamps[prevDay]) {
+                  prevCompletionMs = new Date(parsed.completionTimestamps[prevDay]).getTime();
+                } else {
+                  const activatedDate = new Date(parsed.activationDate);
+                  prevCompletionMs = activatedDate.getTime() + (prevDay - 1) * 24 * 60 * 60 * 1000;
+                }
+                const now = new Date().getTime();
+                isLocked = (prevCompletionMs + 24 * 60 * 60 * 1000 - now) > 0;
+              }
+
+              if (!isLocked) {
+                // Launch questionnaire for the active day directly
+                const existingQuiz = parsed.responses[currentDay] || [];
+                setUserResponses(existingQuiz);
+                setCurrentQuestionIndex(0);
+                setIsEvaluationReady(false);
+                setPhase("WIZARD");
+                setDashboardNotice(`🌟 ¡Ingreso rápido al Test del Día ${currentDay} activado!`);
+                setTimeout(() => setDashboardNotice(null), 5000);
+              } else {
+                setPhase("DASHBOARD");
+                setDashboardNotice(`Querida ${parsed.leadInfo?.nombre || "usuaria"}, tu test del Día ${currentDay} aún se encuentra en proceso de asimilación cronológica.`);
+                setTimeout(() => setDashboardNotice(null), 8000);
+              }
+            } catch (e) {
+              console.error("Error launching deep-link test:", e);
+              setPhase("DASHBOARD");
+            }
+          } else {
+            setPhase("DASHBOARD");
+          }
+        } else {
+          setPhase("LOGIN");
+          setDashboardNotice("Por favor, inicia sesión para acceder directamente a tu test diario.");
+          setTimeout(() => setDashboardNotice(null), 5000);
+        }
+      }
+    }
+  }, []);
 
   // Handle high-fidelity personalized login/recovery calling the secure Hotmart auth system
   const handleRequestAccessCode = async () => {
